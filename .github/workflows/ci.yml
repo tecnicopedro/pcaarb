@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  DATABASE_URL: postgres://pcaarb:pcaarb@localhost:5432/pcaarb
+  JWT_ACCESS_SECRET: ci-access-secret-0000000000000000000000
+  JWT_REFRESH_SECRET: ci-refresh-secret-0000000000000000000000
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: pcaarb
+          POSTGRES_PASSWORD: pcaarb
+          POSTGRES_DB: pcaarb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pcaarb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+
+      - name: Test
+        run: pnpm test
+
+      - name: E2E test (API)
+        run: pnpm --filter @pcaarb/api test:e2e
+
+      - name: Build
+        run: pnpm build

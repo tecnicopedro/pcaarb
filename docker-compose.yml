@@ -1,0 +1,35 @@
+# Portas do host deslocadas (5433/6380 em vez de 5432/6379): em algumas
+# máquinas de dev já existe outro Postgres/Redis (nativo ou de outra distro
+# WSL) ocupando as portas padrão, causando falha de autenticação silenciosa
+# por conectar no serviço errado. Ajuste DATABASE_URL/.env de acordo.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pcaarb
+      POSTGRES_PASSWORD: pcaarb
+      POSTGRES_DB: pcaarb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pcaarb_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pcaarb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pcaarb_postgres_data:

@@ -1,8 +1,12 @@
 node_modules/
 dist/
 build/
+.next/
+out/
+coverage/
 .env
 .env.local
 .turbo/
 *.log
 .DS_Store
+*.tsbuildinfo
