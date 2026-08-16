@@ -43,11 +43,17 @@ export default function PainelPage() {
           href="/painel/produtos"
           className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
         >
-          Produtos e categorias
+          Produtos, categorias e estoque
+        </Link>
+        <Link
+          href="/painel/financeiro"
+          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          Financeiro — contas a pagar e receber
         </Link>
       </nav>
       <p className="text-sm text-zinc-500">
-        Estoque e financeiro entram aqui nas próximas etapas da Fase 1 do roadmap.
+        Fiscal (NFC-e) e pagamento integrado entram nas próximas etapas da Fase 1 do roadmap.
       </p>
     </main>
   );

@@ -21,6 +21,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StockModule } from './modules/stock/stock.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { StockModule } from './modules/stock/stock.module';
     CashSessionsModule,
     SalesModule,
     StockModule,
+    FinanceModule,
   ],
   providers: [
     AbilityFactory,

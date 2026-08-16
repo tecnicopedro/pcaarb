@@ -15,15 +15,16 @@ SaaS de gestão empresarial com PDV (frente de caixa), inspirado na TOTVS — mo
 
 **Fase 0 (fundação) concluída.** Monorepo, auth multi-tenant (registro/login/refresh com trial), RBAC via CASL, RLS no Postgres, CI — tudo validado contra banco real.
 
-**Fase 1 (MVP comercial) em andamento — Cadastros, PDV e Estoque básico concluídos:**
+**Fase 1 (MVP comercial) em andamento — Cadastros, PDV, Estoque básico e Financeiro básico concluídos:**
 
 - **Cadastros:** categorias, produtos, clientes e fornecedores — CRUD completo, multi-tenant de verdade via RLS, RBAC via CASL (`operador_caixa` só lê; `admin`/`owner` gerenciam; `financeiro` só lê). Preço sempre em centavos (inteiro), nunca float. Produto não tem exclusão definitiva — só `active: false` — porque venda referencia produto e apagar quebraria histórico.
 - **PDV:** abertura/fechamento de caixa, sangria/suprimento, venda de balcão com múltiplos itens e pagamento dividido entre formas (dinheiro/cartão/Pix). Venda exige caixa aberto do próprio operador; total da venda precisa bater exatamente com a soma dos pagamentos informados; item de venda guarda snapshot do nome/preço do produto (preço pode mudar depois, histórico não). Quantidade é sempre inteira — venda fracionada/por peso fica para quando o público-alvo (mercearia, loja, pet shop, farmácia, conveniência) exigir.
 - **Estoque básico:** entrada, saída e ajuste de saldo por produto, com ledger auditável (`stock_movements`) e saldo denormalizado no próprio produto. Venda no PDV desconta o estoque automaticamente dentro da mesma transação (ou os dois acontecem, ou nenhum) e bloqueia a venda se não houver saldo suficiente. Produtos podem opcionalmente sair do controle de estoque (`trackStock: false`) para itens sob encomenda ou serviços. Movimentação manual é restrita a `admin`/`owner` (`financeiro` só lê; `operador_caixa` não movimenta diretamente, só via venda).
-- Frontend: `/painel/produtos` (cadastro + saldo de estoque + movimentação) e `/painel/pdv` (abrir caixa, montar carrinho, pagamento dividido, sangria/suprimento, fechar caixa)
-- 20 testes e2e contra Postgres real (Cadastros + PDV + Estoque) cobrindo CRUD, isolamento entre tenants (RLS), RBAC, regras de negócio do PDV e o desconto atômico de estoque nas vendas
+- **Financeiro básico:** contas a pagar e a receber (`finance_entries`) com vencimento, status (pendente/paga/cancelada) e vínculo opcional a cliente ou fornecedor. Pagamento é sempre integral — sem pagamento parcial na Fase 1. Resumo de fluxo de caixa (`GET /finance-entries/summary`) soma pendente, vencido e realizado (pago) por tipo. Gestão é exclusiva de `admin`/`owner`/`financeiro`; `operador_caixa` não acessa. Contas ainda não se conectam a vendas a prazo — é um ledger manual independente do PDV por enquanto.
+- Frontend: `/painel/produtos` (cadastro + saldo de estoque + movimentação), `/painel/pdv` (abrir caixa, montar carrinho, pagamento dividido, sangria/suprimento, fechar caixa) e `/painel/financeiro` (contas a pagar/receber + resumo de fluxo de caixa)
+- 19 testes e2e contra Postgres real (Cadastros + PDV + Estoque + Financeiro) cobrindo CRUD, isolamento entre tenants (RLS), RBAC, regras de negócio do PDV, desconto atômico de estoque nas vendas e o ciclo de vida de contas a pagar/receber
 
-Próximos itens da Fase 1: financeiro básico (contas a pagar/receber, fluxo de caixa simples), integração fiscal (NFC-e) e de pagamento real (hoje o PDV registra a forma de pagamento mas não processa cartão/Pix via gateway — ver [docs/03](docs/03-build-vs-buy-pagamentos-fiscal.md)).
+Próximos itens da Fase 1: integração fiscal (NFC-e via parceiro) e de pagamento real (hoje o PDV registra a forma de pagamento mas não processa cartão/Pix via gateway — ver [docs/03](docs/03-build-vs-buy-pagamentos-fiscal.md)).
 
 Pendências conhecidas: bloqueio automático por fim de trial (guard já existe, falta o job agendado); gestão de usuários (convidar/promover usuário) fica para a Fase 2 conforme roadmap — por ora só o owner criado no registro existe.
 
