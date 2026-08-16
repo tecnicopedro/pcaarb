@@ -12,6 +12,8 @@ export const productSchema = z.object({
   // flutuante em valores monetários — nunca usar float para dinheiro.
   priceCents: z.number().int(),
   costPriceCents: z.number().int().nullable(),
+  stockQuantity: z.number().int(),
+  trackStock: z.boolean(),
   active: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -27,6 +29,7 @@ export const createProductSchema = z.object({
   unit: z.string().min(1).max(10).default('un'),
   priceCents: z.number().int().nonnegative('Preço não pode ser negativo'),
   costPriceCents: z.number().int().nonnegative().nullable().optional(),
+  trackStock: z.boolean().default(true),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;

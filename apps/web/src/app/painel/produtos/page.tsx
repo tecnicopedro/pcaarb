@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -84,6 +84,35 @@ export default function ProdutosPage() {
     onSuccess: () => {
       setNewCategoryName('');
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+
+  const [stockFormProductId, setStockFormProductId] = useState<string | null>(null);
+  const [stockType, setStockType] = useState<'entrada' | 'saida' | 'ajuste'>('entrada');
+  const [stockQuantity, setStockQuantity] = useState('');
+  const [stockReason, setStockReason] = useState('');
+  const [stockError, setStockError] = useState<string | null>(null);
+
+  const stockMovementMutation = useMutation({
+    mutationFn: (productId: string) =>
+      apiFetch(`/products/${productId}/stock-movements`, {
+        method: 'POST',
+        accessToken: accessToken!,
+        body: {
+          type: stockType,
+          quantity: Number(stockQuantity),
+          reason: stockReason.trim() || undefined,
+        },
+      }),
+    onSuccess: () => {
+      setStockFormProductId(null);
+      setStockQuantity('');
+      setStockReason('');
+      setStockError(null);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (error) => {
+      setStockError(error instanceof ApiError ? error.message : 'Erro inesperado');
     },
   });
 
@@ -172,27 +201,95 @@ export default function ProdutosPage() {
                 <th className="px-4 py-2 font-medium">Nome</th>
                 <th className="px-4 py-2 font-medium">SKU</th>
                 <th className="px-4 py-2 font-medium">Preço</th>
+                <th className="px-4 py-2 font-medium">Estoque</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {productsQuery.data?.map((product) => (
-                <tr key={product.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-4 py-2">{product.name}</td>
-                  <td className="px-4 py-2 text-zinc-500">{product.sku ?? '—'}</td>
-                  <td className="px-4 py-2">{formatCentsToBRL(product.priceCents)}</td>
-                  <td className="px-4 py-2">
-                    {product.active ? (
-                      <span className="text-green-600">Ativo</span>
-                    ) : (
-                      <span className="text-zinc-400">Inativo</span>
-                    )}
-                  </td>
-                </tr>
+                <Fragment key={product.id}>
+                  <tr className="border-t border-zinc-200 dark:border-zinc-800">
+                    <td className="px-4 py-2">{product.name}</td>
+                    <td className="px-4 py-2 text-zinc-500">{product.sku ?? '—'}</td>
+                    <td className="px-4 py-2">{formatCentsToBRL(product.priceCents)}</td>
+                    <td className="px-4 py-2">
+                      {product.trackStock ? product.stockQuantity : <span className="text-zinc-400">—</span>}
+                    </td>
+                    <td className="px-4 py-2">
+                      {product.active ? (
+                        <span className="text-green-600">Ativo</span>
+                      ) : (
+                        <span className="text-zinc-400">Inativo</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {product.trackStock && (
+                        <button
+                          type="button"
+                          className="text-xs text-zinc-500 underline"
+                          onClick={() => {
+                            setStockError(null);
+                            setStockFormProductId(stockFormProductId === product.id ? null : product.id);
+                          }}
+                        >
+                          Movimentar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {stockFormProductId === product.id && (
+                    <tr className="border-t border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+                      <td className="px-4 py-3" colSpan={6}>
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs">Tipo</label>
+                            <select
+                              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                              value={stockType}
+                              onChange={(e) => setStockType(e.target.value as typeof stockType)}
+                            >
+                              <option value="entrada">Entrada</option>
+                              <option value="saida">Saída</option>
+                              <option value="ajuste">Ajuste (correção de contagem)</option>
+                            </select>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs">
+                              {stockType === 'ajuste' ? 'Delta (pode ser negativo)' : 'Quantidade'}
+                            </label>
+                            <Input
+                              className="w-28"
+                              value={stockQuantity}
+                              onChange={(e) => setStockQuantity(e.target.value)}
+                              placeholder={stockType === 'ajuste' ? '-5' : '0'}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <label className="text-xs">Motivo (opcional)</label>
+                            <Input
+                              className="w-48"
+                              value={stockReason}
+                              onChange={(e) => setStockReason(e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            disabled={!stockQuantity || stockMovementMutation.isPending}
+                            onClick={() => stockMovementMutation.mutate(product.id)}
+                          >
+                            {stockMovementMutation.isPending ? 'Salvando...' : 'Confirmar'}
+                          </Button>
+                          {stockError && <p className="text-sm text-red-600">{stockError}</p>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
               {productsQuery.data?.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-center text-zinc-400" colSpan={4}>
+                  <td className="px-4 py-6 text-center text-zinc-400" colSpan={6}>
                     Nenhum produto cadastrado ainda.
                   </td>
                 </tr>

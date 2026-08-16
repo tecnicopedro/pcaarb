@@ -20,6 +20,7 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { StockModule } from './modules/stock/stock.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SalesModule } from './modules/sales/sales.module';
     SuppliersModule,
     CashSessionsModule,
     SalesModule,
+    StockModule,
   ],
   providers: [
     AbilityFactory,

@@ -8,3 +8,4 @@ export * from './schemas/customer.js';
 export * from './schemas/supplier.js';
 export * from './schemas/cash-session.js';
 export * from './schemas/sale.js';
+export * from './schemas/stock-movement.js';

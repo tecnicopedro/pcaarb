@@ -46,4 +46,17 @@ describe('AbilityFactory', () => {
     expect(ability.can('manage', 'Customer')).toBe(true);
     expect(ability.can('manage', 'Supplier')).toBe(true);
   });
+
+  it('admin e financeiro acessam estoque, mas operador de caixa não movimenta manualmente', () => {
+    const admin = factory.createForUser({ ...basePayload, role: 'admin' });
+    expect(admin.can('manage', 'StockMovement')).toBe(true);
+
+    const financeiro = factory.createForUser({ ...basePayload, role: 'financeiro' });
+    expect(financeiro.can('read', 'StockMovement')).toBe(true);
+    expect(financeiro.can('create', 'StockMovement')).toBe(false);
+
+    const operadorCaixa = factory.createForUser({ ...basePayload, role: 'operador_caixa' });
+    expect(operadorCaixa.can('read', 'StockMovement')).toBe(false);
+    expect(operadorCaixa.can('create', 'StockMovement')).toBe(false);
+  });
 });

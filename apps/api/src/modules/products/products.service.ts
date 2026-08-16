@@ -46,6 +46,7 @@ export class ProductsService {
           unit: input.unit,
           priceCents: input.priceCents,
           costPriceCents: input.costPriceCents ?? null,
+          trackStock: input.trackStock,
         })
         .returning();
       if (!product) {

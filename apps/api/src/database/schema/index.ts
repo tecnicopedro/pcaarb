@@ -10,3 +10,4 @@ export * from './cash-movements.schema';
 export * from './sales.schema';
 export * from './sale-items.schema';
 export * from './sale-payments.schema';
+export * from './stock-movements.schema';

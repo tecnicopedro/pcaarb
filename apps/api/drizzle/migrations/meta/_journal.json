@@ -36,6 +36,20 @@
       "when": 1786859459819,
       "tag": "0004_enable_rls_pdv",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786886187239,
+      "tag": "0005_lethal_sabretooth",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786886200000,
+      "tag": "0006_enable_rls_stock",
+      "breakpoints": true
     }
   ]
 }

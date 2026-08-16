@@ -5,11 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { registerTenant } from './helpers/register-tenant';
 
+// trackStock: false de propósito — estes testes cobrem o fluxo de pagamento
+// e caixa do PDV, não o desconto de estoque (isso é coberto em estoque.e2e-spec.ts).
 async function createProduct(app: INestApplication, accessToken: string, priceCents: number, name = 'Produto') {
   const response = await request(app.getHttpServer())
     .post('/api/products')
     .set('Authorization', `Bearer ${accessToken}`)
-    .send({ name, priceCents });
+    .send({ name, priceCents, trackStock: false });
   return response.body.id as string;
 }
 

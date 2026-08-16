@@ -14,6 +14,7 @@ import {
   type SalePaymentRow,
 } from '../../database/schema/index';
 import { CashSessionsService } from '../cash-sessions/cash-sessions.service';
+import { StockService } from '../stock/stock.service';
 import { calculateSaleTotals, sumPaymentsCents } from './sale-calculations';
 
 export interface SaleWithDetails extends SaleRow {
@@ -26,6 +27,7 @@ export class SalesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly cashSessionsService: CashSessionsService,
+    private readonly stockService: StockService,
   ) {}
 
   async create(tenantId: string, sellerId: string, input: CreateSaleInput): Promise<SaleWithDetails> {
@@ -101,6 +103,22 @@ export class SalesService {
           }),
         )
         .returning();
+
+      for (const item of input.items) {
+        const product = productById.get(item.productId)!;
+        if (!product.trackStock) {
+          continue;
+        }
+        await this.stockService.applyMovement(tx, {
+          tenantId,
+          userId: sellerId,
+          productId: product.id,
+          type: 'saida',
+          delta: -item.quantity,
+          reason: null,
+          saleId: sale.id,
+        });
+      }
 
       const insertedPayments = await tx
         .insert(salePayments)
