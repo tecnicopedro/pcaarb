@@ -8,6 +8,34 @@
       "when": 1786853543952,
       "tag": "0000_empty_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786858181211,
+      "tag": "0001_flaky_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786858192374,
+      "tag": "0002_enable_rls_cadastros",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786859449537,
+      "tag": "0003_wealthy_magma",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786859459819,
+      "tag": "0004_enable_rls_pdv",
+      "breakpoints": true
     }
   ]
 }

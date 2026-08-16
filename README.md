@@ -13,15 +13,18 @@ SaaS de gestão empresarial com PDV (frente de caixa), inspirado na TOTVS — mo
 
 ## Status atual
 
-**Fase 0 (fundação) concluída e validada de ponta a ponta** contra Postgres real: migrations aplicadas, fluxo completo registro → login → refresh testado (incluindo rotação/revogação de refresh token, conflito de e-mail duplicado, senha incorreta, validação de payload), API e frontend rodando juntos.
+**Fase 0 (fundação) concluída.** Monorepo, auth multi-tenant (registro/login/refresh com trial), RBAC via CASL, RLS no Postgres, CI — tudo validado contra banco real.
 
-- Monorepo pnpm + Turborepo (`apps/api`, `apps/web`, `packages/shared`, `packages/config`)
-- Backend NestJS + Drizzle/Postgres: cadastro de tenant (onboarding self-service com trial), login, refresh token com rotação/revogação, guards de auth/tenant-status/roles, RBAC via CASL, validação de ambiente com Zod, Swagger em `/api/docs`
-- Frontend Next.js (App Router) + Tailwind + TanStack Query: landing, registro de loja e login consumindo a API, com schemas Zod compartilhados do `packages/shared`
-- Docker Compose (Postgres + Redis) para dev local, Dockerfile da API, CI no GitHub Actions (lint, typecheck, testes unitários, testes e2e contra Postgres real, build)
-- Testes: unitários (validação de env, regras de RBAC) e e2e (registro → login → refresh, com rotação de token) via Vitest + Supertest + SWC (necessário para o NestJS resolver injeção de dependência corretamente sob o Vitest)
+**Fase 1 (MVP comercial) em andamento — Cadastros e PDV concluídos:**
 
-Ainda falta da Fase 0: o bloqueio automático por fim de trial (o guard `TenantStatusGuard` já existe e funciona, falta o job agendado que muda o status do tenant de `trial` para `blocked`).
+- **Cadastros:** categorias, produtos, clientes e fornecedores — CRUD completo, multi-tenant de verdade via RLS, RBAC via CASL (`operador_caixa` só lê; `admin`/`owner` gerenciam; `financeiro` só lê). Preço sempre em centavos (inteiro), nunca float. Produto não tem exclusão definitiva — só `active: false` — porque venda referencia produto e apagar quebraria histórico.
+- **PDV:** abertura/fechamento de caixa, sangria/suprimento, venda de balcão com múltiplos itens e pagamento dividido entre formas (dinheiro/cartão/Pix). Venda exige caixa aberto do próprio operador; total da venda precisa bater exatamente com a soma dos pagamentos informados; item de venda guarda snapshot do nome/preço do produto (preço pode mudar depois, histórico não). Quantidade é sempre inteira — venda fracionada/por peso fica para quando o público-alvo (mercearia, loja, pet shop, farmácia, conveniência) exigir.
+- Frontend: `/painel/produtos` (cadastro) e `/painel/pdv` (abrir caixa, montar carrinho, pagamento dividido, sangria/suprimento, fechar caixa)
+- 15 testes e2e contra Postgres real (Cadastros + PDV) cobrindo CRUD, isolamento entre tenants (RLS), RBAC, e as regras de negócio do PDV (venda sem caixa aberto, pagamento que não fecha, produto inativo, caixa fechado bloqueando nova venda)
+
+Próximos itens da Fase 1: estoque básico (entrada/saída/ajuste, saldo por produto — PDV ainda não desconta estoque), financeiro básico, integração fiscal (NFC-e) e de pagamento real (hoje o PDV registra a forma de pagamento mas não processa cartão/Pix via gateway — ver [docs/03](docs/03-build-vs-buy-pagamentos-fiscal.md)).
+
+Pendências conhecidas: bloqueio automático por fim de trial (guard já existe, falta o job agendado); gestão de usuários (convidar/promover usuário) fica para a Fase 2 conforme roadmap — por ora só o owner criado no registro existe.
 
 ## Como rodar localmente
 

@@ -8,7 +8,17 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
  * Subjects vão crescendo por módulo conforme o roadmap avança
  * (Vendas, Estoque, Financeiro, Fiscal, CRM...). 'all' cobre o wildcard do CASL.
  */
-export type Subject = 'all' | 'Sale' | 'Product' | 'FinanceEntry' | 'Tenant' | 'User';
+export type Subject =
+  | 'all'
+  | 'Sale'
+  | 'CashSession'
+  | 'Product'
+  | 'Category'
+  | 'Customer'
+  | 'Supplier'
+  | 'FinanceEntry'
+  | 'Tenant'
+  | 'User';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 
@@ -31,15 +41,25 @@ export class AbilityFactory {
         can('manage', 'all');
         break;
       case 'admin':
-        can('manage', ['Sale', 'Product', 'FinanceEntry', 'User']);
+        can('manage', [
+          'Sale',
+          'CashSession',
+          'Product',
+          'Category',
+          'Customer',
+          'Supplier',
+          'FinanceEntry',
+          'User',
+        ]);
         break;
       case 'financeiro':
         can('manage', 'FinanceEntry');
-        can('read', ['Sale', 'Product']);
+        can('read', ['Sale', 'CashSession', 'Product', 'Category', 'Customer', 'Supplier']);
         break;
       case 'operador_caixa':
         can(['create', 'read'], 'Sale');
-        can('read', 'Product');
+        can(['create', 'read', 'update'], 'CashSession');
+        can('read', ['Product', 'Category', 'Customer']);
         break;
     }
   }

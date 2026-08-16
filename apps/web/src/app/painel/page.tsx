@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -31,9 +32,22 @@ export default function PainelPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Painel PCAARB</h1>
         <Button onClick={logout}>Sair</Button>
       </div>
+      <nav className="flex flex-col gap-2">
+        <Link
+          href="/painel/pdv"
+          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          PDV — abrir caixa e vender
+        </Link>
+        <Link
+          href="/painel/produtos"
+          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          Produtos e categorias
+        </Link>
+      </nav>
       <p className="text-sm text-zinc-500">
-        Login realizado com sucesso. Os módulos de PDV, estoque e financeiro entram aqui a partir
-        da Fase 1 do roadmap.
+        Estoque e financeiro entram aqui nas próximas etapas da Fase 1 do roadmap.
       </p>
     </main>
   );

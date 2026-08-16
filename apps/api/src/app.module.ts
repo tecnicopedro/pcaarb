@@ -7,12 +7,19 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TenantStatusGuard } from './common/guards/tenant-status.guard';
+import { AbilityGuard } from './common/guards/ability.guard';
 import { AbilityFactory } from './common/casl/ability.factory';
 import { DrizzleModule } from './database/drizzle.module';
 import { HealthModule } from './modules/health/health.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ProductsModule } from './modules/products/products.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module';
+import { SalesModule } from './modules/sales/sales.module';
 
 @Module({
   imports: [
@@ -23,6 +30,12 @@ import { AuthModule } from './modules/auth/auth.module';
     TenantsModule,
     UsersModule,
     AuthModule,
+    CategoriesModule,
+    ProductsModule,
+    CustomersModule,
+    SuppliersModule,
+    CashSessionsModule,
+    SalesModule,
   ],
   providers: [
     AbilityFactory,
@@ -30,6 +43,7 @@ import { AuthModule } from './modules/auth/auth.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: TenantStatusGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: AbilityGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
   ],
