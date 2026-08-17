@@ -74,6 +74,9 @@ export class UsersService {
     }
 
     if (target.role === 'owner' && newRole !== 'owner') {
+      if (actingRole !== 'owner') {
+        throw new ForbiddenException('Só um owner pode alterar o papel de outro owner');
+      }
       const owners = await this.db
         .select({ id: users.id })
         .from(users)

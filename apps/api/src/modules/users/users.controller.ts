@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   inviteUserSchema,
@@ -90,7 +103,13 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateUserRoleSchema)) body: UpdateUserRoleInput,
   ) {
-    const updated = await this.usersService.updateRole(user.tenantId, user.role, id, body.role);
+    // O papel do JWT pode estar desatualizado (ex.: usuário rebaixado após o
+    // token ser emitido) — relê do banco pra decidir permissões de owner.
+    const acting = await this.usersService.findById(user.sub);
+    if (!acting) {
+      throw new UnauthorizedException('Usuário autenticado não encontrado');
+    }
+    const updated = await this.usersService.updateRole(user.tenantId, acting.role, id, body.role);
     return toSafeUser(updated);
   }
 }

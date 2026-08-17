@@ -223,6 +223,75 @@ describe('Convite e gestão de usuários (e2e)', () => {
     expect(demote.status).toBe(409);
   });
 
+  it('admin não pode rebaixar um owner, mesmo havendo mais de um owner no tenant', async () => {
+    const owner = await registerTenant(app, 'invite-admin-nao-rebaixa-owner');
+
+    const inviteSecondOwner = await request(app.getHttpServer())
+      .post('/api/users/invite')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ email: uniqueEmail('segundo-owner'), role: 'owner' });
+    const secondOwnerToken = tokenFromInviteUrl(lastInvite!.inviteUrl);
+    await request(app.getHttpServer()).post('/api/auth/accept-invite').send({
+      inviteId: inviteSecondOwner.body.id,
+      token: secondOwnerToken,
+      name: 'Segundo Owner',
+      password: 'SenhaForte123',
+    });
+
+    const inviteAdmin = await request(app.getHttpServer())
+      .post('/api/users/invite')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ email: uniqueEmail('admin-tentando-rebaixar'), role: 'admin' });
+    const adminToken = tokenFromInviteUrl(lastInvite!.inviteUrl);
+    const acceptAdmin = await request(app.getHttpServer()).post('/api/auth/accept-invite').send({
+      inviteId: inviteAdmin.body.id,
+      token: adminToken,
+      name: 'Admin',
+      password: 'SenhaForte123',
+    });
+    const adminAccessToken = acceptAdmin.body.accessToken as string;
+
+    // Neste ponto o tenant tem 2 owners — a checagem de "último owner" por si
+    // só deixaria isso passar. O bloqueio precisa vir de "só owner mexe em owner".
+    const demote = await request(app.getHttpServer())
+      .patch(`/api/users/${owner.userId}/role`)
+      .set('Authorization', `Bearer ${adminAccessToken}`)
+      .send({ role: 'admin' });
+    expect(demote.status).toBe(403);
+  });
+
+  it('usuário rebaixado de owner não consegue se auto-promover de volta com o access token antigo', async () => {
+    const owner = await registerTenant(app, 'invite-sem-reauto-promocao');
+
+    const inviteSecondOwner = await request(app.getHttpServer())
+      .post('/api/users/invite')
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ email: uniqueEmail('sera-rebaixado'), role: 'owner' });
+    const secondOwnerToken = tokenFromInviteUrl(lastInvite!.inviteUrl);
+    const acceptSecondOwner = await request(app.getHttpServer()).post('/api/auth/accept-invite').send({
+      inviteId: inviteSecondOwner.body.id,
+      token: secondOwnerToken,
+      name: 'Será Rebaixado',
+      password: 'SenhaForte123',
+    });
+    // Access token emitido enquanto o usuário ainda era owner — o claim de
+    // papel dele fica desatualizado assim que o primeiro owner o rebaixar.
+    const staleOwnerAccessToken = acceptSecondOwner.body.accessToken as string;
+    const staleOwnerId = JSON.parse(Buffer.from(staleOwnerAccessToken.split('.')[1], 'base64').toString()).sub;
+
+    const demote = await request(app.getHttpServer())
+      .patch(`/api/users/${staleOwnerId}/role`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ role: 'admin' });
+    expect(demote.status).toBe(200);
+
+    const selfPromote = await request(app.getHttpServer())
+      .patch(`/api/users/${staleOwnerId}/role`)
+      .set('Authorization', `Bearer ${staleOwnerAccessToken}`)
+      .send({ role: 'owner' });
+    expect(selfPromote.status).toBe(403);
+  });
+
   it('promove e rebaixa usuário quando não é o último owner', async () => {
     const owner = await registerTenant(app, 'invite-promote');
     const inviteAdmin = await request(app.getHttpServer())
