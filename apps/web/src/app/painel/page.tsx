@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Package, ShoppingCart, Users, Wallet } from 'lucide-react';
+import { Package, ShoppingBag, ShoppingCart, Users, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,6 +11,7 @@ import { useCurrentUser } from '@/lib/use-current-user';
 const SHORTCUTS = [
   { href: '/painel/pdv', label: 'PDV', description: 'Abrir caixa e vender', icon: ShoppingCart },
   { href: '/painel/produtos', label: 'Produtos', description: 'Cadastro, categorias e estoque', icon: Package },
+  { href: '/painel/compras', label: 'Compras', description: 'Pedido a fornecedor e recebimento', icon: ShoppingBag },
   { href: '/painel/financeiro', label: 'Financeiro', description: 'Contas a pagar e receber', icon: Wallet },
   { href: '/painel/usuarios', label: 'Usuários', description: 'Convidar e gerenciar papéis', icon: Users },
 ];

@@ -12,3 +12,4 @@ export * from './schemas/sale.js';
 export * from './schemas/stock-movement.js';
 export * from './schemas/finance-entry.js';
 export * from './schemas/fiscal-document.js';
+export * from './schemas/purchase-order.js';
