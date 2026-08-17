@@ -19,6 +19,7 @@ export type Subject =
   | 'StockMovement'
   | 'FinanceEntry'
   | 'PurchaseOrder'
+  | 'Report'
   | 'Tenant'
   | 'User';
 
@@ -53,6 +54,7 @@ export class AbilityFactory {
           'StockMovement',
           'FinanceEntry',
           'PurchaseOrder',
+          'Report',
           'User',
         ]);
         break;
@@ -67,6 +69,7 @@ export class AbilityFactory {
           'Supplier',
           'StockMovement',
           'PurchaseOrder',
+          'Report',
         ]);
         break;
       case 'operador_caixa':

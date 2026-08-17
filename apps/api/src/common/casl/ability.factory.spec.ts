@@ -72,4 +72,15 @@ describe('AbilityFactory', () => {
     expect(operadorCaixa.can('read', 'PurchaseOrder')).toBe(false);
     expect(operadorCaixa.can('create', 'PurchaseOrder')).toBe(false);
   });
+
+  it('admin e financeiro leem relatórios, operador de caixa não acessa', () => {
+    const admin = factory.createForUser({ ...basePayload, role: 'admin' });
+    expect(admin.can('read', 'Report')).toBe(true);
+
+    const financeiro = factory.createForUser({ ...basePayload, role: 'financeiro' });
+    expect(financeiro.can('read', 'Report')).toBe(true);
+
+    const operadorCaixa = factory.createForUser({ ...basePayload, role: 'operador_caixa' });
+    expect(operadorCaixa.can('read', 'Report')).toBe(false);
+  });
 });

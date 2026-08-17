@@ -24,6 +24,7 @@ import { SalesModule } from './modules/sales/sales.module';
 import { StockModule } from './modules/stock/stock.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.
     StockModule,
     FinanceModule,
     PurchaseOrdersModule,
+    ReportsModule,
   ],
   providers: [
     AbilityFactory,
