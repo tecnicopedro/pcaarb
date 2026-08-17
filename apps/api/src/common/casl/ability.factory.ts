@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AbilityBuilder, PureAbility, type AbilityClass } from '@casl/ability';
+import { eq, and } from 'drizzle-orm';
 import type { JwtPayload, Role } from '@pcaarb/shared';
+import { DRIZZLE, type Database } from '../../database/drizzle.provider';
+import { userPermissionOverrides, type UserPermissionOverrideRow } from '../../database/schema/index';
 
 export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 
@@ -29,12 +32,45 @@ export type AppAbility = PureAbility<[Action, Subject]>;
 
 @Injectable()
 export class AbilityFactory {
-  createForUser(user: JwtPayload): AppAbility {
-    const { can, build } = new AbilityBuilder(PureAbility as AbilityClass<AppAbility>);
+  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
-    this.defineByRole(user.role, can);
+  // Ponto de entrada real (guard): papel + overrides persistidos do usuário.
+  async createForUser(user: JwtPayload): Promise<AppAbility> {
+    const overrides = await this.fetchOverrides(user.tenantId, user.sub);
+    return this.buildAbility(user.role, overrides);
+  }
+
+  // Núcleo puro, sem I/O — testável direto (unit) e reaproveitado por createForUser.
+  // Overrides são aplicados DEPOIS das regras do papel: no CASL a última regra que
+  // casa com (action, subject) vence, então um `can`/`cannot` de override sempre
+  // tem prioridade sobre o default do papel, em qualquer direção (concede ou nega).
+  buildAbility(role: Role, overrides: Pick<UserPermissionOverrideRow, 'subject' | 'action' | 'effect'>[] = []): AppAbility {
+    const { can, cannot, build } = new AbilityBuilder(PureAbility as AbilityClass<AppAbility>);
+
+    this.defineByRole(role, can);
+
+    // Owner sempre tem acesso total, mesmo que existam overrides órfãos de uma
+    // promoção anterior — não é o papel que devia precisar de exceções.
+    if (role !== 'owner') {
+      for (const override of overrides) {
+        const subject = override.subject as Subject;
+        const action = override.action as Action;
+        if (override.effect === 'allow') {
+          can(action, subject);
+        } else {
+          cannot(action, subject);
+        }
+      }
+    }
 
     return build();
+  }
+
+  private async fetchOverrides(tenantId: string, userId: string): Promise<UserPermissionOverrideRow[]> {
+    return this.db
+      .select()
+      .from(userPermissionOverrides)
+      .where(and(eq(userPermissionOverrides.tenantId, tenantId), eq(userPermissionOverrides.userId, userId)));
   }
 
   private defineByRole(

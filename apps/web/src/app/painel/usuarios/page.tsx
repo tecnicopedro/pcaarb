@@ -3,22 +3,169 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
+import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Mail, UserPlus, Users } from 'lucide-react';
+import { KeyRound, Mail, Plus, UserPlus, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { inviteUserSchema, type InviteUserInput, type Role, type User, type UserInvite } from '@pcaarb/shared';
+import {
+  inviteUserSchema,
+  permissionActionSchema,
+  permissionSubjectSchema,
+  type InviteUserInput,
+  type PermissionAction,
+  type PermissionOverride,
+  type PermissionSubject,
+  type Role,
+  type User,
+  type UserInvite,
+} from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useAccessToken } from '@/lib/use-access-token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRows } from '@/components/ui/skeleton';
 import { ROLE_LABELS } from '@/lib/role-labels';
+import { PERMISSION_ACTION_LABELS, PERMISSION_SUBJECT_LABELS } from '@/lib/permission-labels';
+
+function PermissionOverridesPanel({ userId }: { userId: string }) {
+  const accessToken = useAccessToken();
+  const queryClient = useQueryClient();
+  const [subject, setSubject] = useState<PermissionSubject>(permissionSubjectSchema.options[0]);
+  const [action, setAction] = useState<PermissionAction>('read');
+  const [effect, setEffect] = useState<'allow' | 'deny'>('allow');
+
+  const overridesQuery = useQuery({
+    queryKey: ['permission-overrides', userId],
+    queryFn: () => apiFetch<PermissionOverride[]>(`/users/${userId}/permission-overrides`, { accessToken: accessToken! }),
+    enabled: !!accessToken,
+  });
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ['permission-overrides', userId] });
+  }
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<PermissionOverride>(`/users/${userId}/permission-overrides`, {
+        method: 'POST',
+        accessToken: accessToken!,
+        body: { subject, action, effect },
+      }),
+    onSuccess: () => {
+      invalidate();
+      toast.success('Exceção de permissão salva');
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao salvar exceção de permissão');
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (overrideId: string) =>
+      apiFetch(`/users/${userId}/permission-overrides/${overrideId}`, { method: 'DELETE', accessToken: accessToken! }),
+    onSuccess: () => {
+      invalidate();
+      toast.success('Exceção removida');
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-muted">
+        Exceções pontuais além do papel — concedem ou revogam uma permissão específica sem trocar o papel do usuário.
+      </p>
+
+      {overridesQuery.data && overridesQuery.data.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <AnimatePresence initial={false}>
+            {overridesQuery.data.map((override) => (
+              <motion.div
+                key={override.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-3 pr-1.5 text-xs"
+              >
+                <Badge variant={override.effect === 'allow' ? 'success' : 'danger'}>
+                  {override.effect === 'allow' ? '+' : '−'}
+                </Badge>
+                {PERMISSION_ACTION_LABELS[override.action]} · {PERMISSION_SUBJECT_LABELS[override.subject]}
+                <button
+                  type="button"
+                  className="text-muted hover:text-red-600"
+                  disabled={removeMutation.isPending}
+                  onClick={() => removeMutation.mutate(override.id)}
+                  aria-label="Remover"
+                >
+                  ×
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs">Módulo</label>
+          <select
+            className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value as PermissionSubject)}
+          >
+            {permissionSubjectSchema.options.map((option) => (
+              <option key={option} value={option}>
+                {PERMISSION_SUBJECT_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs">Ação</label>
+          <select
+            className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+            value={action}
+            onChange={(e) => setAction(e.target.value as PermissionAction)}
+          >
+            {permissionActionSchema.options.map((option) => (
+              <option key={option} value={option}>
+                {PERMISSION_ACTION_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs">Efeito</label>
+          <select
+            className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+            value={effect}
+            onChange={(e) => setEffect(e.target.value as 'allow' | 'deny')}
+          >
+            <option value="allow">Conceder</option>
+            <option value="deny">Revogar</option>
+          </select>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          loading={createMutation.isPending}
+          onClick={() => createMutation.mutate()}
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function UsuariosPage() {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   const usersQuery = useQuery({
     queryKey: ['users'],
@@ -186,28 +333,57 @@ export default function UsuariosPage() {
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">E-mail</th>
                   <th className="px-4 py-2 font-medium">Papel</th>
+                  <th className="px-4 py-2 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
                 {usersQuery.data.map((user) => (
-                  <tr key={user.id} className="border-t border-border">
-                    <td className="px-4 py-2">{user.name}</td>
-                    <td className="px-4 py-2">{user.email}</td>
-                    <td className="px-4 py-2">
-                      <select
-                        className="h-9 rounded-md border border-border bg-card px-2 text-sm"
-                        value={user.role}
-                        disabled={roleMutation.isPending}
-                        onChange={(event) => roleMutation.mutate({ id: user.id, role: event.target.value as Role })}
-                      >
-                        {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
+                  <Fragment key={user.id}>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">{user.name}</td>
+                      <td className="px-4 py-2">{user.email}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+                          value={user.role}
+                          disabled={roleMutation.isPending}
+                          onChange={(event) => roleMutation.mutate({ id: user.id, role: event.target.value as Role })}
+                        >
+                          {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {user.role !== 'owner' && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                            onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                            Permissões
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    <AnimatePresence initial={false}>
+                      {expandedUserId === user.id && (
+                        <motion.tr
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="border-t border-border bg-zinc-50 dark:bg-zinc-900"
+                        >
+                          <td className="px-4 py-3" colSpan={4}>
+                            <PermissionOverridesPanel userId={user.id} />
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

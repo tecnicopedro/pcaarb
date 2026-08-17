@@ -16,7 +16,7 @@ export class AbilityGuard implements CanActivate {
     private readonly abilityFactory: AbilityFactory,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requirements = this.reflector.getAllAndOverride<AbilityRequirement[]>(CHECK_ABILITIES_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -31,7 +31,7 @@ export class AbilityGuard implements CanActivate {
       return false;
     }
 
-    const ability = this.abilityFactory.createForUser(user);
+    const ability = await this.abilityFactory.createForUser(user);
     const allowed = requirements.every((req) => ability.can(req.action, req.subject));
     if (!allowed) {
       throw new ForbiddenException('Você não tem permissão para executar esta ação');

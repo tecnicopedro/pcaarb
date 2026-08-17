@@ -19,3 +19,4 @@ export * from './purchase-order-items.schema';
 export * from './stock-counts.schema';
 export * from './stock-count-items.schema';
 export * from './cost-centers.schema';
+export * from './user-permission-overrides.schema';

@@ -27,6 +27,7 @@ import { CostCentersModule } from './modules/cost-centers/cost-centers.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
+import { PermissionOverridesModule } from './modules/permission-overrides/permission-overrides.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
     PurchaseOrdersModule,
     ReportsModule,
     StockCountsModule,
+    PermissionOverridesModule,
   ],
   providers: [
     AbilityFactory,
