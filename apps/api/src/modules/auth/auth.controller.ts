@@ -1,7 +1,14 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UsePipes } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { loginSchema, registerTenantSchema, type LoginInput, type RegisterTenantInput } from '@pcaarb/shared';
+import {
+  acceptInviteSchema,
+  loginSchema,
+  registerTenantSchema,
+  type AcceptInviteInput,
+  type LoginInput,
+  type RegisterTenantInput,
+} from '@pcaarb/shared';
 import { z } from 'zod';
 import { Public } from '../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -38,5 +45,13 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(refreshSchema))
   refresh(@Body() body: RefreshInput) {
     return this.authService.refresh(body.refreshToken);
+  }
+
+  @Public()
+  @Post('accept-invite')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(acceptInviteSchema))
+  acceptInvite(@Body() body: AcceptInviteInput) {
+    return this.authService.acceptInvite(body);
   }
 }

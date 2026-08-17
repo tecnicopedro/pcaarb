@@ -85,6 +85,13 @@
       "when": 1786938730000,
       "tag": "0011_app_role_least_privilege",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1786943609069,
+      "tag": "0012_needy_cardiac",
+      "breakpoints": true
     }
   ]
 }

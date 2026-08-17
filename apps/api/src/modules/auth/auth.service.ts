@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { eq } from 'drizzle-orm';
-import type { AuthTokens, LoginInput, RegisterTenantInput } from '@pcaarb/shared';
+import type { AcceptInviteInput, AuthTokens, LoginInput, RegisterTenantInput } from '@pcaarb/shared';
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { refreshTokens, type UserRow } from '../../database/schema/index';
@@ -33,6 +33,11 @@ export class AuthService {
   async register(input: RegisterTenantInput): Promise<AuthTokens> {
     const { owner } = await this.tenantsService.registerWithOwner(input);
     return this.issueTokens(owner);
+  }
+
+  async acceptInvite(input: AcceptInviteInput): Promise<AuthTokens> {
+    const user = await this.usersService.acceptInvite(input);
+    return this.issueTokens(user);
   }
 
   async login(input: LoginInput): Promise<AuthTokens> {

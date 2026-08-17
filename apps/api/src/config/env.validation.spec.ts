@@ -6,6 +6,8 @@ const validBaseEnv = {
   APP_DATABASE_URL: 'postgres://app_user:pass@localhost:5432/pcaarb',
   JWT_ACCESS_SECRET: 'a'.repeat(32),
   JWT_REFRESH_SECRET: 'b'.repeat(32),
+  RESEND_API_KEY: 'test_key',
+  RESEND_FROM_EMAIL: 'no-reply@example.com',
 };
 
 describe('validateEnv', () => {

@@ -51,6 +51,12 @@ export default function PainelPage() {
         >
           Financeiro — contas a pagar e receber
         </Link>
+        <Link
+          href="/painel/usuarios"
+          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+        >
+          Usuários — convidar e gerenciar papéis
+        </Link>
       </nav>
       <p className="text-sm text-zinc-500">
         Cada venda no PDV já emite NFC-e e confirma pagamento via gateway em modo sandbox — troca para um
