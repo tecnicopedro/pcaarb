@@ -11,6 +11,11 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
  * Subjects vão crescendo por módulo conforme o roadmap avança
  * (Vendas, Estoque, Financeiro, Fiscal, CRM...). 'all' cobre o wildcard do CASL.
  */
+// 'User' cobre só leitura de identidade (listar usuários/convites — baixo
+// risco). Convidar/trocar papel viram 'UserAccess', um subject à parte,
+// porque concedem controle equivalente a admin (convidar já como admin,
+// promover a admin) e por isso NUNCA podem ser alvo de override — ver
+// exclusão em permissionSubjectSchema (packages/shared).
 export type Subject =
   | 'all'
   | 'Sale'
@@ -26,7 +31,8 @@ export type Subject =
   | 'PurchaseOrder'
   | 'Report'
   | 'Tenant'
-  | 'User';
+  | 'User'
+  | 'UserAccess';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 
@@ -96,6 +102,7 @@ export class AbilityFactory {
           'PurchaseOrder',
           'Report',
           'User',
+          'UserAccess',
         ]);
         break;
       case 'financeiro':

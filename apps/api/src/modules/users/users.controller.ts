@@ -70,7 +70,7 @@ export class UsersController {
     return invites.map(({ tokenHash: _tokenHash, ...safeInvite }) => safeInvite);
   }
 
-  @CheckAbilities({ action: 'create', subject: 'User' })
+  @CheckAbilities({ action: 'create', subject: 'UserAccess' })
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('invite')
   async invite(
@@ -91,14 +91,17 @@ export class UsersController {
     return safeInvite;
   }
 
-  @CheckAbilities({ action: 'create', subject: 'User' })
+  @CheckAbilities({ action: 'create', subject: 'UserAccess' })
   @Delete('invites/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   revokeInvite(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.revokeInvite(user.tenantId, id);
   }
 
-  @CheckAbilities({ action: 'update', subject: 'User' })
+  // Subject 'UserAccess' (não 'User'): trocar papel concede controle
+  // equivalente a admin, então não pode ser um alvo de override pontual —
+  // ver exclusão em permissionSubjectSchema (packages/shared).
+  @CheckAbilities({ action: 'update', subject: 'UserAccess' })
   @Patch(':id/role')
   async updateRole(
     @CurrentUser() user: JwtPayload,

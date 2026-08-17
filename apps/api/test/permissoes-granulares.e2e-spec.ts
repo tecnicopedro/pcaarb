@@ -249,6 +249,45 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ subject: 'Tenant', action: 'manage', effect: 'allow' });
     expect(attemptTenant.status).toBe(400);
+
+    const attemptUserAccess = await request(app.getHttpServer())
+      .post(`/api/users/${cashier.id}/permission-overrides`)
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ subject: 'UserAccess', action: 'update', effect: 'allow' });
+    expect(attemptUserAccess.status).toBe(400);
+  });
+
+  it('override em "User" (leitura de identidade) não permite escalonamento via convite/troca de papel', async () => {
+    const tenant = await registerTenant(app, 'perm-escalonamento');
+    const cashier = await mintUser(app, db, tenant.tenantId, 'operador_caixa');
+
+    // Admin concede algo aparentemente pontual: update:User.
+    const grant = await request(app.getHttpServer())
+      .post(`/api/users/${cashier.id}/permission-overrides`)
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ subject: 'User', action: 'update', effect: 'allow' });
+    expect(grant.status).toBe(201);
+
+    // Não destrava se auto-promover a admin...
+    const escalateRole = await request(app.getHttpServer())
+      .patch(`/api/users/${cashier.id}/role`)
+      .set('Authorization', `Bearer ${cashier.accessToken}`)
+      .send({ role: 'admin' });
+    expect(escalateRole.status).toBe(403);
+
+    // ...nem convidar um novo usuário já como admin...
+    const escalateInvite = await request(app.getHttpServer())
+      .post('/api/users/invite')
+      .set('Authorization', `Bearer ${cashier.accessToken}`)
+      .send({ email: `escalonamento-${Date.now()}@pcaarb.test`, role: 'admin' });
+    expect(escalateInvite.status).toBe(403);
+
+    // ...nem gerenciar overrides de outros usuários (meta-escalonamento).
+    const escalateOverrides = await request(app.getHttpServer())
+      .post(`/api/users/${cashier.id}/permission-overrides`)
+      .set('Authorization', `Bearer ${cashier.accessToken}`)
+      .send({ subject: 'FinanceEntry', action: 'manage', effect: 'allow' });
+    expect(escalateOverrides.status).toBe(403);
   });
 
   it('a invariante de "sempre existe ao menos um owner" continua intacta com o novo módulo', async () => {

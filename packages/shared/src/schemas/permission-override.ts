@@ -5,9 +5,12 @@ export const permissionActionSchema = z.enum(['manage', 'create', 'read', 'updat
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
 
 // Espelha o `Subject` do CASL (apps/api/src/common/casl/ability.factory.ts),
-// exceto 'all' e 'Tenant' — override não pode conceder acesso de nível tenant
-// nem o wildcard, pra não virar um caminho de escalonamento de privilégio por
-// fora do papel de owner.
+// exceto 'all', 'Tenant' e 'UserAccess' — override não pode conceder acesso
+// de nível tenant, o wildcard, nem convidar/trocar papel de usuário
+// ('UserAccess'), pra não virar um caminho de escalonamento de privilégio
+// por fora do papel de owner/admin. 'User' aqui só cobre leitura de
+// identidade (listar usuários/convites); UserAccess é gerido só pelo papel
+// base, nunca por override — ver ability.factory.ts.
 export const permissionSubjectSchema = z.enum([
   'Sale',
   'CashSession',

@@ -39,6 +39,19 @@ describe('AbilityFactory', () => {
     expect(ability.can('create', 'Product')).toBe(false);
   });
 
+  it('admin gerencia UserAccess (convite/troca de papel), operador de caixa não acessa', () => {
+    const admin = factory.buildAbility('admin');
+    expect(admin.can('create', 'UserAccess')).toBe(true);
+    expect(admin.can('update', 'UserAccess')).toBe(true);
+
+    const financeiro = factory.buildAbility('financeiro');
+    expect(financeiro.can('update', 'UserAccess')).toBe(false);
+
+    const operadorCaixa = factory.buildAbility('operador_caixa');
+    expect(operadorCaixa.can('update', 'UserAccess')).toBe(false);
+    expect(operadorCaixa.can('create', 'UserAccess')).toBe(false);
+  });
+
   it('admin gerencia cadastros (produto, categoria, cliente, fornecedor)', () => {
     const ability = factory.buildAbility('admin');
     expect(ability.can('manage', 'Product')).toBe(true);
@@ -134,6 +147,19 @@ describe('AbilityFactory', () => {
       const ability = factory.buildAbility('owner', [{ subject: 'User', action: 'delete', effect: 'deny' }]);
       expect(ability.can('delete', 'User')).toBe(true);
       expect(ability.can('manage', 'all')).toBe(true);
+    });
+
+    it('override em "User" nunca concede UserAccess (convite/troca de papel é imune a override)', () => {
+      // 'User' e 'UserAccess' são subjects distintos por isso: um override
+      // update:User (pensado como algo pontual) não deve destravar convite
+      // nem troca de papel — só o papel base admin/owner concede UserAccess.
+      const ability = factory.buildAbility('operador_caixa', [
+        { subject: 'User', action: 'update', effect: 'allow' },
+        { subject: 'User', action: 'create', effect: 'allow' },
+        { subject: 'User', action: 'manage', effect: 'allow' },
+      ]);
+      expect(ability.can('update', 'UserAccess')).toBe(false);
+      expect(ability.can('create', 'UserAccess')).toBe(false);
     });
 
     it('múltiplos overrides no mesmo usuário são todos aplicados de forma independente', () => {
