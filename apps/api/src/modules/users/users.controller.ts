@@ -13,6 +13,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
   inviteUserSchema,
   updateUserRoleSchema,
@@ -70,6 +71,7 @@ export class UsersController {
   }
 
   @CheckAbilities({ action: 'create', subject: 'User' })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('invite')
   async invite(
     @CurrentUser() user: JwtPayload,

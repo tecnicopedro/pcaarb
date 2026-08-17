@@ -82,6 +82,36 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
+  // Logout é o único jeito de matar um refresh token antes da hora — sem
+  // isso, um token vazado fica válido até expirar (rotação só revoga o
+  // anterior quando o token É USADO pra pegar um novo). Tolerante a token
+  // já inválido/revogado: logout sempre "funciona" do ponto de vista do
+  // cliente, não há nada de sensível em confirmar isso sem erro.
+  async logout(rawToken: string): Promise<void> {
+    let payload: RefreshJwtPayload;
+    try {
+      payload = await this.verifyRefreshToken(rawToken);
+    } catch {
+      return;
+    }
+
+    const [tokenRow] = await this.db
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.id, payload.jti))
+      .limit(1);
+    if (!tokenRow || tokenRow.revoked) {
+      return;
+    }
+
+    const matches = await bcrypt.compare(rawToken, tokenRow.tokenHash);
+    if (!matches) {
+      return;
+    }
+
+    await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, tokenRow.id));
+  }
+
   private async verifyRefreshToken(rawToken: string): Promise<RefreshJwtPayload> {
     try {
       return await this.jwtService.verifyAsync<RefreshJwtPayload>(rawToken, {

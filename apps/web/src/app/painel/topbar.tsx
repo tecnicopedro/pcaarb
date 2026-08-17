@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, LogOut, Package, ShoppingCart, Users, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-client';
 import { ROLE_LABELS } from '@/lib/role-labels';
 import { useCurrentUser } from '@/lib/use-current-user';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +23,13 @@ export function Topbar() {
   const meQuery = useCurrentUser();
 
   function logout() {
+    const refreshToken = localStorage.getItem('pcaarb_refresh_token');
+    // Best-effort: revoga o refresh token no servidor pra ele não continuar
+    // válido até expirar. Se falhar (rede fora, etc.), o logout local segue
+    // normal — o usuário não pode ficar preso na tela por causa disso.
+    if (refreshToken) {
+      apiFetch('/auth/logout', { method: 'POST', body: { refreshToken } }).catch(() => {});
+    }
     localStorage.removeItem('pcaarb_access_token');
     localStorage.removeItem('pcaarb_refresh_token');
     router.replace('/login');

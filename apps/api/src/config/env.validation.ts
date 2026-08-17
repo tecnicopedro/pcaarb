@@ -14,7 +14,7 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
   TRIAL_DAYS: z.coerce.number().int().positive().default(14),
-  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
   RESEND_API_KEY: z.string().min(1, 'RESEND_API_KEY é obrigatória'),
   RESEND_FROM_EMAIL: z.string().email(),
 });

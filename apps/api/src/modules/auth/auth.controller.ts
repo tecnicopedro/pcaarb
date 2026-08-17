@@ -24,6 +24,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  // Cadastro não é alvo de força bruta como login — o limite existe só pra
+  // travar flood automatizado de contas, não pra ser tão apertado quanto
+  // login. 5/min gerava falso-positivo até num uso legítimo em rajada.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('register')
   @UsePipes(new ZodValidationPipe(registerTenantSchema))
   register(@Body() body: RegisterTenantInput) {
@@ -48,6 +52,15 @@ export class AuthController {
   }
 
   @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UsePipes(new ZodValidationPipe(refreshSchema))
+  async logout(@Body() body: RefreshInput) {
+    await this.authService.logout(body.refreshToken);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('accept-invite')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ZodValidationPipe(acceptInviteSchema))
