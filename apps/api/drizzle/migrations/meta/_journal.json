@@ -78,6 +78,13 @@
       "when": 1786938720000,
       "tag": "0010_enable_rls_fiscal",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1786938730000,
+      "tag": "0011_app_role_least_privilege",
+      "breakpoints": true
     }
   ]
 }

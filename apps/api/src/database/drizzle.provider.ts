@@ -13,7 +13,10 @@ export const drizzleProvider: Provider = {
   provide: DRIZZLE,
   inject: [ConfigService],
   useFactory: (config: ConfigService<Env, true>): Database => {
-    const pool = new Pool({ connectionString: config.get('DATABASE_URL', { infer: true }) });
+    // Role restrita (não dona das tabelas, sem SUPERUSER/BYPASSRLS) — ver
+    // comentário em env.validation.ts. DATABASE_URL (dono) fica só para
+    // migrations, nunca para a conexão de runtime da API.
+    const pool = new Pool({ connectionString: config.get('APP_DATABASE_URL', { infer: true }) });
     return drizzle(pool, { schema });
   },
 };

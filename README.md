@@ -42,6 +42,8 @@ pnpm dev                       # API em :3001, Web em :3000
 
 > **Porta ocupada?** O `docker-compose.yml` publica Postgres em `5433` e Redis em `6380` (em vez das portas padrão `5432`/`6379`) porque é comum já haver outro Postgres/Redis rodando na máquina (nativo, outra distro WSL etc.), o que causa falha de autenticação silenciosa por conectar no serviço errado. Se sua máquina não tem esse conflito, pode usar as portas padrão à vontade — só ajuste `DATABASE_URL` e o compose.
 
+> **Duas URLs de banco?** `DATABASE_URL` (dono das tabelas) é usada só por `pnpm db:migrate`/`db:generate`. `APP_DATABASE_URL` é a conexão de runtime da API, numa role restrita (`pcaarb_app`, sem `SUPERUSER`/`BYPASSRLS`) criada pela migration `0011_app_role_least_privilege`. Rode `pnpm db:migrate` antes de subir a API — sem essa migration a role não existe e a API não sobe.
+
 ## Convenção do repositório
 
 Projeto vive em `documentos/pcaarb` (mesma convenção usada em outros projetos como `marketplace_local` e `darkpedia` neste ambiente), com git próprio e `.gitignore` isolando-o dos demais arquivos da pasta `documentos`.
