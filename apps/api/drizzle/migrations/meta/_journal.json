@@ -141,6 +141,20 @@
       "when": 1786994411985,
       "tag": "0019_cheerful_shiva",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786997730921,
+      "tag": "0020_exotic_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786997731000,
+      "tag": "0021_enable_rls_loyalty",
+      "breakpoints": true
     }
   ]
 }

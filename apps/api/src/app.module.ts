@@ -28,6 +28,7 @@ import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.
 import { ReportsModule } from './modules/reports/reports.module';
 import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
 import { PermissionOverridesModule } from './modules/permission-overrides/permission-overrides.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { PermissionOverridesModule } from './modules/permission-overrides/permis
     ReportsModule,
     StockCountsModule,
     PermissionOverridesModule,
+    LoyaltyModule,
   ],
   providers: [
     AbilityFactory,

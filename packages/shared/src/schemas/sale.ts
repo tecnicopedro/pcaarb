@@ -28,6 +28,9 @@ export const createSaleSchema = z.object({
   customerId: z.string().uuid().nullable().optional(),
   items: z.array(createSaleItemSchema).min(1, 'A venda precisa de ao menos um item'),
   discountCents: z.number().int().nonnegative().optional().default(0),
+  // Só tem efeito com customerId informado — resgate de pontos de fidelidade
+  // exige um cliente identificado na venda.
+  pointsToRedeem: z.number().int().nonnegative().optional().default(0),
   payments: z.array(createSalePaymentSchema).min(1, 'Informe ao menos uma forma de pagamento'),
 });
 
@@ -67,6 +70,8 @@ export const saleSchema = z.object({
   discountCents: z.number().int(),
   totalCents: z.number().int(),
   createdAt: z.string().datetime(),
+  pointsRedeemed: z.number().int(),
+  pointsEarned: z.number().int(),
   items: z.array(saleItemSchema),
   payments: z.array(salePaymentSchema),
   fiscalDocument: z

@@ -3,9 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { Plus, Receipt, ShoppingCart, Trash2 } from 'lucide-react';
+import { Gift, Plus, Receipt, ShoppingCart, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CashSession, PaymentMethod, Product, Sale } from '@pcaarb/shared';
+import type { CashSession, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -61,6 +61,28 @@ export default function PdvPage() {
     enabled: !!accessToken && !!sessionQuery.data,
   });
 
+  const customersQuery = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => apiFetch<Customer[]>('/customers', { accessToken: accessToken! }),
+    enabled: !!accessToken && !!sessionQuery.data,
+  });
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [pointsToRedeemInput, setPointsToRedeemInput] = useState('');
+
+  const loyaltyProgramQuery = useQuery({
+    queryKey: ['loyalty-program'],
+    queryFn: () => apiFetch<LoyaltyProgram>('/loyalty/program', { accessToken: accessToken! }),
+    enabled: !!accessToken && !!sessionQuery.data,
+  });
+
+  const customerBalanceQuery = useQuery({
+    queryKey: ['loyalty-balance', selectedCustomerId],
+    queryFn: () =>
+      apiFetch<CustomerLoyaltyBalance>(`/customers/${selectedCustomerId}/loyalty/balance`, { accessToken: accessToken! }),
+    enabled: !!accessToken && !!selectedCustomerId,
+  });
+
   const [openingAmount, setOpeningAmount] = useState('');
   const openSessionMutation = useMutation({
     mutationFn: () =>
@@ -88,7 +110,9 @@ export default function PdvPage() {
     [cart],
   );
   const discountCents = parseBRLToCents(discountReais || '0');
-  const totalCents = Math.max(subtotalCents - discountCents, 0);
+  const pointsToRedeem = Math.max(Number.parseInt(pointsToRedeemInput, 10) || 0, 0);
+  const redemptionValueCents = pointsToRedeem * (loyaltyProgramQuery.data?.redeemValueCents ?? 0);
+  const totalCents = Math.max(subtotalCents - discountCents - redemptionValueCents, 0);
   const paidCents = useMemo(
     () => payments.reduce((sum, p) => sum + parseBRLToCents(p.amountReais || '0'), 0),
     [payments],
@@ -131,8 +155,10 @@ export default function PdvPage() {
         method: 'POST',
         accessToken: accessToken!,
         body: {
+          customerId: selectedCustomerId || undefined,
           items: cart.map((line) => ({ productId: line.productId, quantity: line.quantity })),
           discountCents,
+          pointsToRedeem,
           payments: payments.map((p) => ({ method: p.method, amountCents: parseBRLToCents(p.amountReais || '0') })),
         },
       }),
@@ -141,7 +167,9 @@ export default function PdvPage() {
       setCart([]);
       setPayments([]);
       setDiscountReais('');
+      setPointsToRedeemInput('');
       setSaleError(null);
+      queryClient.invalidateQueries({ queryKey: ['loyalty-balance', selectedCustomerId] });
     },
     onError: (error) => {
       setSaleError(error instanceof ApiError ? error.message : 'Erro inesperado ao registrar a venda');
@@ -241,6 +269,12 @@ export default function PdvPage() {
                         NFC-e não emitida: {lastSale.fiscalDocument.rejectionReason}. Reemita depois em Vendas.
                       </span>
                     )}
+                    {lastSale.pointsEarned > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                        <Gift className="h-3.5 w-3.5" />
+                        Cliente ganhou {lastSale.pointsEarned} ponto(s) de fidelidade
+                      </span>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -249,6 +283,33 @@ export default function PdvPage() {
 
           <Card className="flex flex-col gap-4">
             <h2 className="text-sm font-medium">Nova venda</h2>
+
+            <div className="flex flex-col gap-1.5 sm:w-80">
+              <label className="text-sm">Cliente (opcional)</label>
+              <select
+                className="h-10 rounded-md border border-border bg-card px-3 text-sm"
+                value={selectedCustomerId}
+                onChange={(e) => {
+                  setSelectedCustomerId(e.target.value);
+                  setPointsToRedeemInput('');
+                }}
+              >
+                <option value="">Sem cliente identificado</option>
+                {customersQuery.data?.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </option>
+                ))}
+              </select>
+              {selectedCustomerId && customerBalanceQuery.data && (
+                <p className="flex items-center gap-1 text-xs text-muted">
+                  <Gift className="h-3.5 w-3.5" />
+                  {customerBalanceQuery.data.balancePoints} ponto(s) disponível(is) — vale{' '}
+                  {formatCentsToBRL(customerBalanceQuery.data.balanceValueCents)}
+                </p>
+              )}
+            </div>
+
             <div className="flex items-end gap-2">
               <div className="flex flex-1 flex-col gap-1.5">
                 <label className="text-sm">Produto</label>
@@ -320,11 +381,34 @@ export default function PdvPage() {
               <Input placeholder="0,00" value={discountReais} onChange={(e) => setDiscountReais(e.target.value)} />
             </div>
 
+            {selectedCustomerId && !!customerBalanceQuery.data?.balancePoints && (
+              <div className="flex flex-col gap-1.5 self-end sm:w-64">
+                <label className="text-sm">Resgatar pontos (máx. {customerBalanceQuery.data.balancePoints})</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={customerBalanceQuery.data.balancePoints}
+                  placeholder="0"
+                  value={pointsToRedeemInput}
+                  onChange={(e) => setPointsToRedeemInput(e.target.value)}
+                />
+                {pointsToRedeem > 0 && (
+                  <p className="text-xs text-muted">desconto de {formatCentsToBRL(redemptionValueCents)}</p>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-col gap-1 self-end text-right text-sm sm:w-64">
               <div className="flex justify-between">
                 <span className="text-muted">Subtotal</span>
                 <span>{formatCentsToBRL(subtotalCents)}</span>
               </div>
+              {redemptionValueCents > 0 && (
+                <div className="flex justify-between text-muted">
+                  <span>Resgate de pontos</span>
+                  <span>-{formatCentsToBRL(redemptionValueCents)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total</span>
                 <span>{formatCentsToBRL(totalCents)}</span>

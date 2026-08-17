@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { BarChart3, ClipboardList, Contact, Package, ShoppingBag, ShoppingCart, Users, Wallet } from 'lucide-react';
+import { BarChart3, ClipboardList, Contact, Gift, Package, ShoppingBag, ShoppingCart, Users, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +13,7 @@ const SHORTCUTS = [
   { href: '/painel/produtos', label: 'Produtos', description: 'Cadastro, categorias e estoque', icon: Package },
   { href: '/painel/contagens', label: 'Inventário', description: 'Contagem de estoque e ajustes', icon: ClipboardList },
   { href: '/painel/cadastros', label: 'Cadastros', description: 'Clientes e fornecedores', icon: Contact },
+  { href: '/painel/fidelidade', label: 'Fidelidade', description: 'Pontos, resgate e histórico do cliente', icon: Gift },
   { href: '/painel/compras', label: 'Compras', description: 'Pedido a fornecedor e recebimento', icon: ShoppingBag },
   { href: '/painel/financeiro', label: 'Financeiro', description: 'Contas a pagar e receber', icon: Wallet },
   { href: '/painel/relatorios', label: 'Relatórios', description: 'Curva ABC, ticket médio e ranking', icon: BarChart3 },

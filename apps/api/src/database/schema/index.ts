@@ -20,3 +20,5 @@ export * from './stock-counts.schema';
 export * from './stock-count-items.schema';
 export * from './cost-centers.schema';
 export * from './user-permission-overrides.schema';
+export * from './loyalty-programs.schema';
+export * from './loyalty-ledger-entries.schema';

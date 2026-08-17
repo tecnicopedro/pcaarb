@@ -9,6 +9,7 @@ import {
   saleItems,
   salePayments,
   fiscalDocuments,
+  loyaltyLedgerEntries,
   type ProductRow,
   type SaleRow,
   type SaleItemRow,
@@ -19,12 +20,15 @@ import { CashSessionsService } from '../cash-sessions/cash-sessions.service';
 import { StockService } from '../stock/stock.service';
 import { PAYMENT_PROVIDER, type PaymentProvider } from '../payments/payment-provider.interface';
 import { FiscalService } from '../fiscal/fiscal.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { calculateSaleTotals, sumPaymentsCents } from './sale-calculations';
 
 export interface SaleWithDetails extends SaleRow {
   items: SaleItemRow[];
   payments: SalePaymentRow[];
   fiscalDocument: FiscalDocumentRow | null;
+  pointsRedeemed: number;
+  pointsEarned: number;
 }
 
 @Injectable()
@@ -35,6 +39,7 @@ export class SalesService {
     private readonly stockService: StockService,
     @Inject(PAYMENT_PROVIDER) private readonly paymentProvider: PaymentProvider,
     private readonly fiscalService: FiscalService,
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   async create(tenantId: string, sellerId: string, input: CreateSaleInput): Promise<SaleWithDetails> {
@@ -65,9 +70,20 @@ export class SalesService {
         const product = productById.get(item.productId)!;
         return { priceCents: product.priceCents, quantity: item.quantity };
       });
-      const { subtotalCents, totalCents } = calculateSaleTotals(lines, input.discountCents ?? 0);
+
+      const pointsToRedeem = input.pointsToRedeem ?? 0;
+      if (pointsToRedeem > 0 && !input.customerId) {
+        throw new BadRequestException('Resgate de pontos de fidelidade exige um cliente selecionado na venda');
+      }
+      const loyaltyProgram = await this.loyaltyService.getOrCreateProgramTx(tx, tenantId);
+      if (pointsToRedeem > 0 && !loyaltyProgram.active) {
+        throw new BadRequestException('Programa de fidelidade está desativado');
+      }
+      const redemptionValueCents = pointsToRedeem * loyaltyProgram.redeemValueCents;
+
+      const { subtotalCents, totalCents } = calculateSaleTotals(lines, input.discountCents ?? 0, redemptionValueCents);
       if (totalCents < 0) {
-        throw new BadRequestException('Desconto não pode ser maior que o subtotal da venda');
+        throw new BadRequestException('Desconto e resgate de pontos não podem ser maiores que o subtotal da venda');
       }
 
       const paidCents = sumPaymentsCents(input.payments);
@@ -91,6 +107,18 @@ export class SalesService {
         .returning();
       if (!sale) {
         throw new Error('Falha ao registrar venda');
+      }
+
+      if (pointsToRedeem > 0) {
+        // Validação de saldo acontece aqui (não antes): dentro da mesma
+        // transação da venda, então um saldo insuficiente derruba a venda
+        // inteira junto (nada de venda registrada com resgate parcial).
+        await this.loyaltyService.redeemTx(tx, {
+          tenantId,
+          customerId: input.customerId!,
+          saleId: sale.id,
+          points: pointsToRedeem,
+        });
       }
 
       const insertedItems = await tx
@@ -172,7 +200,28 @@ export class SalesService {
         })),
       });
 
-      return { ...sale, items: insertedItems, payments: insertedPayments, fiscalDocument };
+      // Ganho é calculado sobre o total líquido (já com desconto e resgate
+      // aplicados) e só depois que os pagamentos foram aprovados — cancelar
+      // por pagamento recusado não deixa pontos "fantasma" no cliente.
+      let pointsEarned = 0;
+      if (input.customerId) {
+        pointsEarned = await this.loyaltyService.earnTx(tx, {
+          tenantId,
+          customerId: input.customerId,
+          saleId: sale.id,
+          netPaidCents: sale.totalCents,
+          program: loyaltyProgram,
+        });
+      }
+
+      return {
+        ...sale,
+        items: insertedItems,
+        payments: insertedPayments,
+        fiscalDocument,
+        pointsRedeemed: pointsToRedeem,
+        pointsEarned,
+      };
     });
   }
 
@@ -189,7 +238,13 @@ export class SalesService {
       const items = await tx.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
       const payments = await tx.select().from(salePayments).where(eq(salePayments.saleId, sale.id));
       const [fiscalDocument] = await tx.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale.id)).limit(1);
-      return { ...sale, items, payments, fiscalDocument: fiscalDocument ?? null };
+      const loyaltyEntries = await tx
+        .select({ type: loyaltyLedgerEntries.type, points: loyaltyLedgerEntries.points })
+        .from(loyaltyLedgerEntries)
+        .where(eq(loyaltyLedgerEntries.saleId, sale.id));
+      const pointsRedeemed = -loyaltyEntries.filter((e) => e.type === 'redeem').reduce((sum, e) => sum + e.points, 0);
+      const pointsEarned = loyaltyEntries.filter((e) => e.type === 'earn').reduce((sum, e) => sum + e.points, 0);
+      return { ...sale, items, payments, fiscalDocument: fiscalDocument ?? null, pointsRedeemed, pointsEarned };
     });
   }
 
