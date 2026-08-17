@@ -14,3 +14,4 @@ export * from './schemas/finance-entry.js';
 export * from './schemas/fiscal-document.js';
 export * from './schemas/purchase-order.js';
 export * from './schemas/report.js';
+export * from './schemas/stock-count.js';

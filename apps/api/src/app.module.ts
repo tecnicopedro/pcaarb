@@ -25,6 +25,7 @@ import { StockModule } from './modules/stock/stock.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     FinanceModule,
     PurchaseOrdersModule,
     ReportsModule,
+    StockCountsModule,
   ],
   providers: [
     AbilityFactory,

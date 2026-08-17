@@ -73,6 +73,19 @@ describe('AbilityFactory', () => {
     expect(operadorCaixa.can('create', 'PurchaseOrder')).toBe(false);
   });
 
+  it('admin gerencia contagens de estoque, financeiro só lê, operador de caixa não acessa', () => {
+    const admin = factory.createForUser({ ...basePayload, role: 'admin' });
+    expect(admin.can('manage', 'StockCount')).toBe(true);
+
+    const financeiro = factory.createForUser({ ...basePayload, role: 'financeiro' });
+    expect(financeiro.can('read', 'StockCount')).toBe(true);
+    expect(financeiro.can('create', 'StockCount')).toBe(false);
+
+    const operadorCaixa = factory.createForUser({ ...basePayload, role: 'operador_caixa' });
+    expect(operadorCaixa.can('read', 'StockCount')).toBe(false);
+    expect(operadorCaixa.can('create', 'StockCount')).toBe(false);
+  });
+
   it('admin e financeiro leem relatórios, operador de caixa não acessa', () => {
     const admin = factory.createForUser({ ...basePayload, role: 'admin' });
     expect(admin.can('read', 'Report')).toBe(true);

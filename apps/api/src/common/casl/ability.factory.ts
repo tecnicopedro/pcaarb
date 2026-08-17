@@ -17,6 +17,7 @@ export type Subject =
   | 'Customer'
   | 'Supplier'
   | 'StockMovement'
+  | 'StockCount'
   | 'FinanceEntry'
   | 'PurchaseOrder'
   | 'Report'
@@ -52,6 +53,7 @@ export class AbilityFactory {
           'Customer',
           'Supplier',
           'StockMovement',
+          'StockCount',
           'FinanceEntry',
           'PurchaseOrder',
           'Report',
@@ -68,6 +70,7 @@ export class AbilityFactory {
           'Customer',
           'Supplier',
           'StockMovement',
+          'StockCount',
           'PurchaseOrder',
           'Report',
         ]);

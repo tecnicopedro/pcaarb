@@ -2,7 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BarChart3, Contact, LayoutDashboard, LogOut, Package, ShoppingBag, ShoppingCart, Users, Wallet } from 'lucide-react';
+import {
+  BarChart3,
+  ClipboardList,
+  Contact,
+  LayoutDashboard,
+  LogOut,
+  Package,
+  ShoppingBag,
+  ShoppingCart,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api-client';
 import { ROLE_LABELS } from '@/lib/role-labels';
@@ -13,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/painel', label: 'Painel', icon: LayoutDashboard },
   { href: '/painel/pdv', label: 'PDV', icon: ShoppingCart },
   { href: '/painel/produtos', label: 'Produtos', icon: Package },
+  { href: '/painel/contagens', label: 'Inventário', icon: ClipboardList },
   { href: '/painel/cadastros', label: 'Cadastros', icon: Contact },
   { href: '/painel/compras', label: 'Compras', icon: ShoppingBag },
   { href: '/painel/financeiro', label: 'Financeiro', icon: Wallet },

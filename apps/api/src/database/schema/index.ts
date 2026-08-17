@@ -16,3 +16,5 @@ export * from './finance-entries.schema';
 export * from './fiscal-documents.schema';
 export * from './purchase-orders.schema';
 export * from './purchase-order-items.schema';
+export * from './stock-counts.schema';
+export * from './stock-count-items.schema';
