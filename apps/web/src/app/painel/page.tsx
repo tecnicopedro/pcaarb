@@ -53,7 +53,8 @@ export default function PainelPage() {
         </Link>
       </nav>
       <p className="text-sm text-zinc-500">
-        Fiscal (NFC-e) e pagamento integrado entram nas próximas etapas da Fase 1 do roadmap.
+        Cada venda no PDV já emite NFC-e e confirma pagamento via gateway em modo sandbox — troca para um
+        provedor real (Focus NFe, Pagar.me...) quando a conta/credenciais existirem (ver docs/03).
       </p>
     </main>
   );

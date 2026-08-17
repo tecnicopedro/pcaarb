@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fiscalDocumentStatusSchema } from './fiscal-document.js';
 
 export const paymentMethodSchema = z.enum(['dinheiro', 'cartao_credito', 'cartao_debito', 'pix']);
 
@@ -49,6 +50,7 @@ export const salePaymentSchema = z.object({
   saleId: z.string().uuid(),
   method: paymentMethodSchema,
   amountCents: z.number().int(),
+  providerTransactionId: z.string().nullable(),
   createdAt: z.string().datetime(),
 });
 
@@ -67,6 +69,15 @@ export const saleSchema = z.object({
   createdAt: z.string().datetime(),
   items: z.array(saleItemSchema),
   payments: z.array(salePaymentSchema),
+  fiscalDocument: z
+    .object({
+      id: z.string().uuid(),
+      status: fiscalDocumentStatusSchema,
+      accessKey: z.string().nullable(),
+      documentUrl: z.string().nullable(),
+      rejectionReason: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 export type Sale = z.infer<typeof saleSchema>;

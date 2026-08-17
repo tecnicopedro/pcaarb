@@ -64,6 +64,20 @@
       "when": 1786886760000,
       "tag": "0008_enable_rls_finance",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786938714448,
+      "tag": "0009_hot_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786938720000,
+      "tag": "0010_enable_rls_fiscal",
+      "breakpoints": true
     }
   ]
 }

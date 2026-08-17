@@ -8,18 +8,23 @@ import {
   sales,
   saleItems,
   salePayments,
+  fiscalDocuments,
   type ProductRow,
   type SaleRow,
   type SaleItemRow,
   type SalePaymentRow,
+  type FiscalDocumentRow,
 } from '../../database/schema/index';
 import { CashSessionsService } from '../cash-sessions/cash-sessions.service';
 import { StockService } from '../stock/stock.service';
+import { PAYMENT_PROVIDER, type PaymentProvider } from '../payments/payment-provider.interface';
+import { FiscalService } from '../fiscal/fiscal.service';
 import { calculateSaleTotals, sumPaymentsCents } from './sale-calculations';
 
 export interface SaleWithDetails extends SaleRow {
   items: SaleItemRow[];
   payments: SalePaymentRow[];
+  fiscalDocument: FiscalDocumentRow | null;
 }
 
 @Injectable()
@@ -28,6 +33,8 @@ export class SalesService {
     @Inject(DRIZZLE) private readonly db: Database,
     private readonly cashSessionsService: CashSessionsService,
     private readonly stockService: StockService,
+    @Inject(PAYMENT_PROVIDER) private readonly paymentProvider: PaymentProvider,
+    private readonly fiscalService: FiscalService,
   ) {}
 
   async create(tenantId: string, sellerId: string, input: CreateSaleInput): Promise<SaleWithDetails> {
@@ -120,19 +127,52 @@ export class SalesService {
         });
       }
 
-      const insertedPayments = await tx
-        .insert(salePayments)
-        .values(
-          input.payments.map((payment) => ({
+      const paymentsWithTransaction = await Promise.all(
+        input.payments.map(async (payment) => {
+          if (payment.method === 'dinheiro') {
+            return { ...payment, providerTransactionId: null as string | null };
+          }
+          const charge = await this.paymentProvider.charge({
             tenantId,
             saleId: sale.id,
             method: payment.method,
             amountCents: payment.amountCents,
+          });
+          if (!charge.approved) {
+            throw new BadRequestException(
+              `Pagamento em ${payment.method} recusado pela operadora${charge.declineReason ? `: ${charge.declineReason}` : ''}`,
+            );
+          }
+          return { ...payment, providerTransactionId: charge.providerTransactionId };
+        }),
+      );
+
+      const insertedPayments = await tx
+        .insert(salePayments)
+        .values(
+          paymentsWithTransaction.map((payment) => ({
+            tenantId,
+            saleId: sale.id,
+            method: payment.method,
+            amountCents: payment.amountCents,
+            providerTransactionId: payment.providerTransactionId,
           })),
         )
         .returning();
 
-      return { ...sale, items: insertedItems, payments: insertedPayments };
+      const fiscalDocument = await this.fiscalService.issueForSale(tx, {
+        tenantId,
+        saleId: sale.id,
+        totalCents: sale.totalCents,
+        items: insertedItems.map((item) => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+          totalCents: item.totalCents,
+        })),
+      });
+
+      return { ...sale, items: insertedItems, payments: insertedPayments, fiscalDocument };
     });
   }
 
@@ -148,7 +188,8 @@ export class SalesService {
       }
       const items = await tx.select().from(saleItems).where(eq(saleItems.saleId, sale.id));
       const payments = await tx.select().from(salePayments).where(eq(salePayments.saleId, sale.id));
-      return { ...sale, items, payments };
+      const [fiscalDocument] = await tx.select().from(fiscalDocuments).where(eq(fiscalDocuments.saleId, sale.id)).limit(1);
+      return { ...sale, items, payments, fiscalDocument: fiscalDocument ?? null };
     });
   }
 

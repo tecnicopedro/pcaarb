@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, text, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.schema';
 import { sales } from './sales.schema';
 
@@ -19,6 +19,9 @@ export const salePayments = pgTable('sale_payments', {
     .references(() => sales.id, { onDelete: 'cascade' }),
   method: paymentMethodEnum('method').notNull(),
   amountCents: integer('amount_cents').notNull(),
+  // Só preenchido para métodos que passam por gateway (cartão/Pix) — dinheiro
+  // liquida na hora e não tem transação de provedor.
+  providerTransactionId: text('provider_transaction_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

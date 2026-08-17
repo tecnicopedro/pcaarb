@@ -224,9 +224,21 @@ export default function PdvPage() {
           </div>
 
           {lastSale && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm dark:border-blue-900 dark:bg-blue-950">
-              Venda registrada: {formatCentsToBRL(lastSale.totalCents)} ({lastSale.items.length} ite
-              {lastSale.items.length === 1 ? 'm' : 'ns'})
+            <div className="flex flex-col gap-1 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm dark:border-blue-900 dark:bg-blue-950">
+              <span>
+                Venda registrada: {formatCentsToBRL(lastSale.totalCents)} ({lastSale.items.length} ite
+                {lastSale.items.length === 1 ? 'm' : 'ns'})
+              </span>
+              {lastSale.fiscalDocument?.status === 'authorized' && (
+                <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                  NFC-e autorizada (sandbox) — chave {lastSale.fiscalDocument.accessKey}
+                </span>
+              )}
+              {lastSale.fiscalDocument?.status === 'rejected' && (
+                <span className="text-xs text-amber-700 dark:text-amber-500">
+                  NFC-e não emitida: {lastSale.fiscalDocument.rejectionReason}. Reemita depois em Vendas.
+                </span>
+              )}
             </div>
           )}
 

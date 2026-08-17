@@ -4,13 +4,17 @@ import { createSaleSchema, type CreateSaleInput, type JwtPayload } from '@pcaarb
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CheckAbilities } from '../../common/decorators/check-abilities.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { FiscalService } from '../fiscal/fiscal.service';
 import { SalesService } from './sales.service';
 
 @ApiTags('sales')
 @ApiBearerAuth()
 @Controller('sales')
 export class SalesController {
-  constructor(private readonly salesService: SalesService) {}
+  constructor(
+    private readonly salesService: SalesService,
+    private readonly fiscalService: FiscalService,
+  ) {}
 
   @CheckAbilities({ action: 'create', subject: 'Sale' })
   @Post()
@@ -31,5 +35,11 @@ export class SalesController {
   @Get(':id')
   findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.salesService.findByIdOrThrow(user.tenantId, id);
+  }
+
+  @CheckAbilities({ action: 'update', subject: 'Sale' })
+  @Post(':id/fiscal-document/retry')
+  retryFiscalDocument(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.fiscalService.retry(user.tenantId, id);
   }
 }
