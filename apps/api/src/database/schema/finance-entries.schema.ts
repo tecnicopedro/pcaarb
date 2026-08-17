@@ -3,6 +3,7 @@ import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 import { customers } from './customers.schema';
 import { suppliers } from './suppliers.schema';
+import { costCenters } from './cost-centers.schema';
 
 export const financeEntryTypeEnum = pgEnum('finance_entry_type', ['payable', 'receivable']);
 export const financeEntryStatusEnum = pgEnum('finance_entry_status', ['pending', 'paid', 'canceled']);
@@ -23,6 +24,7 @@ export const financeEntries = pgTable('finance_entries', {
   // contraparte cadastrada (ex.: conta de luz).
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'set null' }),
+  costCenterId: uuid('cost_center_id').references(() => costCenters.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by')
     .notNull()
     .references(() => users.id),

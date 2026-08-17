@@ -44,3 +44,24 @@ export const sellerRankingItemSchema = z.object({
 });
 
 export type SellerRankingItem = z.infer<typeof sellerRankingItemSchema>;
+
+export const dreCostCenterBreakdownSchema = z.object({
+  costCenterId: z.string().uuid().nullable(),
+  costCenterName: z.string(),
+  receitasCents: z.number(),
+  despesasCents: z.number(),
+  resultadoCents: z.number(),
+});
+
+export type DreCostCenterBreakdown = z.infer<typeof dreCostCenterBreakdownSchema>;
+
+export const dreSummarySchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  receitasCents: z.number(),
+  despesasCents: z.number(),
+  resultadoCents: z.number(),
+  porCentroDeCusto: z.array(dreCostCenterBreakdownSchema),
+});
+
+export type DreSummary = z.infer<typeof dreSummarySchema>;

@@ -1,9 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, gte, inArray, lte } from 'drizzle-orm';
-import type { AbcCurveItem, ProductRankingItem, ReportPeriodQuery, SalesSummary, SellerRankingItem } from '@pcaarb/shared';
+import { and, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
+import type {
+  AbcCurveItem,
+  DreSummary,
+  ProductRankingItem,
+  ReportPeriodQuery,
+  SalesSummary,
+  SellerRankingItem,
+} from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
-import { sales, saleItems, users, type SaleRow } from '../../database/schema/index';
+import { sales, saleItems, users, financeEntries, costCenters, type SaleRow } from '../../database/schema/index';
 
 interface ResolvedRange {
   from: string;
@@ -93,6 +100,68 @@ export class ReportsService {
         revenueCents: acc.revenueCents,
       }))
       .sort((a, b) => b.revenueCents - a.revenueCents);
+  }
+
+  // DRE simplificado em regime de caixa (só o que já foi efetivamente pago),
+  // não de competência — mais simples e mais honesto pro estágio atual do
+  // produto, que não tem conciliação bancária real ainda.
+  async dre(tenantId: string, query: ReportPeriodQuery): Promise<DreSummary> {
+    const range = resolveRange(query);
+
+    const paidEntries = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select()
+        .from(financeEntries)
+        .where(
+          and(
+            eq(financeEntries.tenantId, tenantId),
+            eq(financeEntries.status, 'paid'),
+            isNotNull(financeEntries.paidAt),
+            gte(financeEntries.paidAt, range.fromDate),
+            lte(financeEntries.paidAt, range.toDate),
+          ),
+        ),
+    );
+
+    const costCenterRows = await runWithTenant(this.db, tenantId, (tx) =>
+      tx.select({ id: costCenters.id, name: costCenters.name }).from(costCenters).where(eq(costCenters.tenantId, tenantId)),
+    );
+    const nameById = new Map(costCenterRows.map((cc) => [cc.id, cc.name]));
+
+    const byCostCenter = new Map<string, { costCenterId: string | null; costCenterName: string; receitasCents: number; despesasCents: number }>();
+    let receitasCents = 0;
+    let despesasCents = 0;
+
+    for (const entry of paidEntries) {
+      const key = entry.costCenterId ?? 'sem-centro-de-custo';
+      const acc = byCostCenter.get(key) ?? {
+        costCenterId: entry.costCenterId,
+        costCenterName: entry.costCenterId ? (nameById.get(entry.costCenterId) ?? 'Desconhecido') : 'Sem centro de custo',
+        receitasCents: 0,
+        despesasCents: 0,
+      };
+      if (entry.type === 'receivable') {
+        acc.receitasCents += entry.amountCents;
+        receitasCents += entry.amountCents;
+      } else {
+        acc.despesasCents += entry.amountCents;
+        despesasCents += entry.amountCents;
+      }
+      byCostCenter.set(key, acc);
+    }
+
+    const porCentroDeCusto = [...byCostCenter.values()]
+      .map((acc) => ({ ...acc, resultadoCents: acc.receitasCents - acc.despesasCents }))
+      .sort((a, b) => b.receitasCents + b.despesasCents - (a.receitasCents + a.despesasCents));
+
+    return {
+      from: range.from,
+      to: range.to,
+      receitasCents,
+      despesasCents,
+      resultadoCents: receitasCents - despesasCents,
+      porCentroDeCusto,
+    };
   }
 
   private async completedSalesInRange(tenantId: string, range: ResolvedRange): Promise<SaleRow[]> {

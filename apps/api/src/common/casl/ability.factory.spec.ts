@@ -86,6 +86,18 @@ describe('AbilityFactory', () => {
     expect(operadorCaixa.can('create', 'StockCount')).toBe(false);
   });
 
+  it('admin e financeiro gerenciam centro de custo, operador de caixa não acessa', () => {
+    const admin = factory.createForUser({ ...basePayload, role: 'admin' });
+    expect(admin.can('manage', 'CostCenter')).toBe(true);
+
+    const financeiro = factory.createForUser({ ...basePayload, role: 'financeiro' });
+    expect(financeiro.can('manage', 'CostCenter')).toBe(true);
+
+    const operadorCaixa = factory.createForUser({ ...basePayload, role: 'operador_caixa' });
+    expect(operadorCaixa.can('read', 'CostCenter')).toBe(false);
+    expect(operadorCaixa.can('create', 'CostCenter')).toBe(false);
+  });
+
   it('admin e financeiro leem relatórios, operador de caixa não acessa', () => {
     const admin = factory.createForUser({ ...basePayload, role: 'admin' });
     expect(admin.can('read', 'Report')).toBe(true);

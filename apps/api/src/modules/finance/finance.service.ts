@@ -7,7 +7,7 @@ import type {
 } from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
-import { customers, suppliers, financeEntries, type FinanceEntryRow } from '../../database/schema/index';
+import { customers, suppliers, costCenters, financeEntries, type FinanceEntryRow } from '../../database/schema/index';
 
 @Injectable()
 export class FinanceService {
@@ -53,6 +53,9 @@ export class FinanceService {
       if (input.supplierId) {
         await this.assertSupplierExists(tx, tenantId, input.supplierId);
       }
+      if (input.costCenterId) {
+        await this.assertCostCenterExists(tx, tenantId, input.costCenterId);
+      }
 
       const [entry] = await tx
         .insert(financeEntries)
@@ -64,6 +67,7 @@ export class FinanceService {
           dueDate: input.dueDate,
           customerId: input.customerId ?? null,
           supplierId: input.supplierId ?? null,
+          costCenterId: input.costCenterId ?? null,
           createdBy: userId,
         })
         .returning();
@@ -86,6 +90,9 @@ export class FinanceService {
       }
       if (input.supplierId) {
         await this.assertSupplierExists(tx, tenantId, input.supplierId);
+      }
+      if (input.costCenterId) {
+        await this.assertCostCenterExists(tx, tenantId, input.costCenterId);
       }
 
       const [entry] = await tx
@@ -194,6 +201,17 @@ export class FinanceService {
       .limit(1);
     if (!supplier) {
       throw new NotFoundException('Fornecedor não encontrado');
+    }
+  }
+
+  private async assertCostCenterExists(tx: Database, tenantId: string, costCenterId: string): Promise<void> {
+    const [costCenter] = await tx
+      .select({ id: costCenters.id })
+      .from(costCenters)
+      .where(and(eq(costCenters.id, costCenterId), eq(costCenters.tenantId, tenantId)))
+      .limit(1);
+    if (!costCenter) {
+      throw new NotFoundException('Centro de custo não encontrado');
     }
   }
 }

@@ -47,4 +47,10 @@ export class ReportsController {
   ) {
     return this.reportsService.sellerRanking(user.tenantId, query);
   }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('dre')
+  dre(@CurrentUser() user: JwtPayload, @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery) {
+    return this.reportsService.dre(user.tenantId, query);
+  }
 }

@@ -19,6 +19,7 @@ export type Subject =
   | 'StockMovement'
   | 'StockCount'
   | 'FinanceEntry'
+  | 'CostCenter'
   | 'PurchaseOrder'
   | 'Report'
   | 'Tenant'
@@ -55,13 +56,14 @@ export class AbilityFactory {
           'StockMovement',
           'StockCount',
           'FinanceEntry',
+          'CostCenter',
           'PurchaseOrder',
           'Report',
           'User',
         ]);
         break;
       case 'financeiro':
-        can('manage', 'FinanceEntry');
+        can('manage', ['FinanceEntry', 'CostCenter']);
         can('read', [
           'Sale',
           'CashSession',

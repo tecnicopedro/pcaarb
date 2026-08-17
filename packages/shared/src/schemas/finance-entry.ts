@@ -14,6 +14,7 @@ export const financeEntrySchema = z.object({
   paidAt: z.string().datetime().nullable(),
   customerId: z.string().uuid().nullable(),
   supplierId: z.string().uuid().nullable(),
+  costCenterId: z.string().uuid().nullable(),
   createdBy: z.string().uuid(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -28,6 +29,7 @@ export const createFinanceEntrySchema = z.object({
   dueDate: z.string().date('Data de vencimento inválida'),
   customerId: z.string().uuid().nullable().optional(),
   supplierId: z.string().uuid().nullable().optional(),
+  costCenterId: z.string().uuid().nullable().optional(),
 });
 
 export type CreateFinanceEntryInput = z.infer<typeof createFinanceEntrySchema>;

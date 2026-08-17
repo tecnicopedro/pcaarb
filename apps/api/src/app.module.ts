@@ -23,6 +23,7 @@ import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module
 import { SalesModule } from './modules/sales/sales.module';
 import { StockModule } from './modules/stock/stock.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { CostCentersModule } from './modules/cost-centers/cost-centers.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
@@ -45,6 +46,7 @@ import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
     SalesModule,
     StockModule,
     FinanceModule,
+    CostCentersModule,
     PurchaseOrdersModule,
     ReportsModule,
     StockCountsModule,

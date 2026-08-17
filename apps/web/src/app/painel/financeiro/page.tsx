@@ -2,10 +2,11 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { ArrowDownCircle, ArrowUpCircle, Receipt, Wallet } from 'lucide-react';
 import { z } from 'zod';
-import type { Customer, FinanceCashflowSummary, FinanceEntry, Supplier } from '@pcaarb/shared';
+import type { CostCenter, Customer, FinanceCashflowSummary, FinanceEntry, Supplier } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -23,6 +24,7 @@ const entryFormSchema = z.object({
   dueDate: z.string().min(1, 'Informe o vencimento'),
   customerId: z.string().optional(),
   supplierId: z.string().optional(),
+  costCenterId: z.string().optional(),
 });
 
 type EntryFormValues = z.infer<typeof entryFormSchema>;
@@ -59,6 +61,23 @@ export default function FinanceiroPage() {
     enabled: !!accessToken,
   });
 
+  const costCentersQuery = useQuery({
+    queryKey: ['cost-centers'],
+    queryFn: () => apiFetch<CostCenter[]>('/cost-centers', { accessToken: accessToken! }),
+    enabled: !!accessToken,
+  });
+  const costCenterNameById = new Map(costCentersQuery.data?.map((cc) => [cc.id, cc.name]) ?? []);
+
+  const [newCostCenterName, setNewCostCenterName] = useState('');
+  const createCostCenterMutation = useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<CostCenter>('/cost-centers', { method: 'POST', accessToken: accessToken!, body: { name } }),
+    onSuccess: () => {
+      setNewCostCenterName('');
+      queryClient.invalidateQueries({ queryKey: ['cost-centers'] });
+    },
+  });
+
   const {
     register,
     handleSubmit,
@@ -88,6 +107,7 @@ export default function FinanceiroPage() {
           dueDate: values.dueDate,
           customerId: values.type === 'receivable' && values.customerId ? values.customerId : undefined,
           supplierId: values.type === 'payable' && values.supplierId ? values.supplierId : undefined,
+          costCenterId: values.costCenterId || undefined,
         },
       }),
     onSuccess: () => {
@@ -207,12 +227,41 @@ export default function FinanceiroPage() {
               </select>
             </div>
           )}
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label className="text-sm">Centro de custo (opcional)</label>
+            <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('costCenterId')}>
+              <option value="">Sem centro de custo</option>
+              {costCentersQuery.data
+                ?.filter((cc) => cc.active)
+                .map((costCenter) => (
+                  <option key={costCenter.id} value={costCenter.id}>
+                    {costCenter.name}
+                  </option>
+                ))}
+            </select>
+          </div>
         </div>
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
         <Button type="submit" loading={createMutation.isPending} className="self-start">
           Adicionar conta
         </Button>
       </Card>
+
+      <div className="flex items-end gap-2 rounded-lg border border-dashed border-border p-4">
+        <div className="flex flex-1 flex-col gap-1.5">
+          <label className="text-sm">Novo centro de custo</label>
+          <Input value={newCostCenterName} onChange={(e) => setNewCostCenterName(e.target.value)} placeholder="Ex.: Loja, Marketing" />
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={newCostCenterName.trim().length < 2}
+          loading={createCostCenterMutation.isPending}
+          onClick={() => createCostCenterMutation.mutate(newCostCenterName.trim())}
+        >
+          Criar centro de custo
+        </Button>
+      </div>
 
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-medium text-muted">{entriesQuery.data ? `${entriesQuery.data.length} conta(s)` : ''}</h2>
@@ -227,6 +276,7 @@ export default function FinanceiroPage() {
                   <th className="px-4 py-2 font-medium">Descrição</th>
                   <th className="px-4 py-2 font-medium">Valor</th>
                   <th className="px-4 py-2 font-medium">Vencimento</th>
+                  <th className="px-4 py-2 font-medium">Centro de custo</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium"></th>
                 </tr>
@@ -238,6 +288,9 @@ export default function FinanceiroPage() {
                     <td className="px-4 py-2">{entry.description}</td>
                     <td className="px-4 py-2">{formatCentsToBRL(entry.amountCents)}</td>
                     <td className="px-4 py-2">{entry.dueDate}</td>
+                    <td className="px-4 py-2 text-muted">
+                      {entry.costCenterId ? (costCenterNameById.get(entry.costCenterId) ?? '—') : '—'}
+                    </td>
                     <td className="px-4 py-2">
                       {isOverdue(entry) ? (
                         <Badge variant="danger">Vencida</Badge>
