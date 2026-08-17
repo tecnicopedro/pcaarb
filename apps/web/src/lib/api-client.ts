@@ -13,7 +13,7 @@ export class ApiError extends Error {
 
 export async function apiFetch<TResponse>(
   path: string,
-  options: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: unknown; accessToken?: string } = {},
+  options: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; accessToken?: string } = {},
 ): Promise<TResponse> {
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? 'GET',

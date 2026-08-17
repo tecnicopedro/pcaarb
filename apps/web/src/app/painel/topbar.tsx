@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  Percent,
   ShoppingBag,
   ShoppingCart,
   Users,
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { href: '/painel/compras', label: 'Compras', icon: ShoppingBag },
   { href: '/painel/financeiro', label: 'Financeiro', icon: Wallet },
   { href: '/painel/relatorios', label: 'Relatórios', icon: BarChart3 },
+  { href: '/painel/comissoes', label: 'Comissões', icon: Percent },
   { href: '/painel/usuarios', label: 'Usuários', icon: Users },
 ];
 

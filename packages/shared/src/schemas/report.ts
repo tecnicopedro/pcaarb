@@ -65,3 +65,23 @@ export const dreSummarySchema = z.object({
 });
 
 export type DreSummary = z.infer<typeof dreSummarySchema>;
+
+export const sellerCommissionReportItemSchema = z.object({
+  sellerId: z.string().uuid(),
+  sellerName: z.string(),
+  totalSales: z.number(),
+  revenueCents: z.number(),
+  rateBps: z.number().int(),
+  commissionCents: z.number(),
+});
+
+export type SellerCommissionReportItem = z.infer<typeof sellerCommissionReportItemSchema>;
+
+export const commissionReportSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  totalCommissionCents: z.number(),
+  porVendedor: z.array(sellerCommissionReportItemSchema),
+});
+
+export type CommissionReport = z.infer<typeof commissionReportSchema>;

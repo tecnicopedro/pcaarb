@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
 import type {
   AbcCurveItem,
+  CommissionReport,
   DreSummary,
   ProductRankingItem,
   ReportPeriodQuery,
@@ -11,6 +12,7 @@ import type {
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
 import { sales, saleItems, users, financeEntries, costCenters, type SaleRow } from '../../database/schema/index';
+import { CommissionsService } from '../commissions/commissions.service';
 
 interface ResolvedRange {
   from: string;
@@ -33,7 +35,10 @@ function resolveRange(query: ReportPeriodQuery): ResolvedRange {
 
 @Injectable()
 export class ReportsService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly commissionsService: CommissionsService,
+  ) {}
 
   async summary(tenantId: string, query: ReportPeriodQuery): Promise<SalesSummary> {
     const range = resolveRange(query);
@@ -100,6 +105,54 @@ export class ReportsService {
         revenueCents: acc.revenueCents,
       }))
       .sort((a, b) => b.revenueCents - a.revenueCents);
+  }
+
+  // Comissão calculada sob demanda (não é ledger): agrega a receita por
+  // vendedor no período e aplica a taxa resolvida (override individual em
+  // seller_commission_rates, senão a taxa padrão do tenant).
+  async commissionReport(tenantId: string, query: ReportPeriodQuery): Promise<CommissionReport> {
+    const range = resolveRange(query);
+    const salesInRange = await this.completedSalesInRange(tenantId, range);
+    if (salesInRange.length === 0) {
+      return { from: range.from, to: range.to, totalCommissionCents: 0, porVendedor: [] };
+    }
+
+    const sellerIds = [...new Set(salesInRange.map((sale) => sale.sellerId))];
+    const bySeller = new Map<string, { totalSales: number; revenueCents: number }>();
+    for (const sale of salesInRange) {
+      const acc = bySeller.get(sale.sellerId) ?? { totalSales: 0, revenueCents: 0 };
+      acc.totalSales += 1;
+      acc.revenueCents += sale.totalCents;
+      bySeller.set(sale.sellerId, acc);
+    }
+
+    const { sellerRows, rateBySeller } = await runWithTenant(this.db, tenantId, async (tx) => {
+      const rows = await tx.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, sellerIds));
+      const rates = await this.commissionsService.resolveRatesTx(tx, tenantId, sellerIds);
+      return { sellerRows: rows, rateBySeller: rates };
+    });
+    const nameById = new Map(sellerRows.map((seller) => [seller.id, seller.name]));
+
+    const porVendedor = [...bySeller.entries()]
+      .map(([sellerId, acc]) => {
+        const rateBps = rateBySeller.get(sellerId) ?? 0;
+        return {
+          sellerId,
+          sellerName: nameById.get(sellerId) ?? 'Desconhecido',
+          totalSales: acc.totalSales,
+          revenueCents: acc.revenueCents,
+          rateBps,
+          commissionCents: Math.round((acc.revenueCents * rateBps) / 10_000),
+        };
+      })
+      .sort((a, b) => b.commissionCents - a.commissionCents);
+
+    return {
+      from: range.from,
+      to: range.to,
+      totalCommissionCents: porVendedor.reduce((sum, item) => sum + item.commissionCents, 0),
+      porVendedor,
+    };
   }
 
   // DRE simplificado em regime de caixa (só o que já foi efetivamente pago),

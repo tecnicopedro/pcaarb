@@ -22,3 +22,5 @@ export * from './cost-centers.schema';
 export * from './user-permission-overrides.schema';
 export * from './loyalty-programs.schema';
 export * from './loyalty-ledger-entries.schema';
+export * from './commission-settings.schema';
+export * from './seller-commission-rates.schema';
