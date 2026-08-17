@@ -1,11 +1,11 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
-import { Fragment, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
+import { Fragment, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Package, SlidersHorizontal } from 'lucide-react';
 import { z } from 'zod';
 import type { Category, Product } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -13,6 +13,10 @@ import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonRows } from '@/components/ui/skeleton';
 
 const productFormSchema = z.object({
   name: z.string().min(2, 'Nome muito curto'),
@@ -24,15 +28,8 @@ const productFormSchema = z.object({
 type ProductFormValues = z.infer<typeof productFormSchema>;
 
 export default function ProdutosPage() {
-  const router = useRouter();
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/login');
-    }
-  }, [accessToken, router]);
 
   const productsQuery = useQuery({
     queryKey: ['products'],
@@ -121,18 +118,12 @@ export default function ProdutosPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/painel" className="text-sm text-zinc-500 underline">
-            &larr; Painel
-          </Link>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Produtos</h1>
-        </div>
-      </div>
+    <>
+      <h1 className="text-2xl font-semibold tracking-tight">Produtos</h1>
 
-      <form
-        className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      <Card
+        as="form"
+        className="flex flex-col gap-4"
         onSubmit={handleSubmit((values) => createMutation.mutate(values))}
       >
         <h2 className="text-sm font-medium">Novo produto</h2>
@@ -153,10 +144,7 @@ export default function ProdutosPage() {
           </div>
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className="text-sm">Categoria</label>
-            <select
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              {...register('categoryId')}
-            >
+            <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('categoryId')}>
               <option value="">Sem categoria</option>
               {categoriesQuery.data?.map((category) => (
                 <option key={category.id} value={category.id}>
@@ -167,137 +155,137 @@ export default function ProdutosPage() {
           </div>
         </div>
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        <Button type="submit" disabled={createMutation.isPending} className="self-start">
-          {createMutation.isPending ? 'Salvando...' : 'Adicionar produto'}
+        <Button type="submit" loading={createMutation.isPending} className="self-start">
+          Adicionar produto
         </Button>
-      </form>
+      </Card>
 
-      <div className="flex items-end gap-2 rounded-lg border border-dashed border-zinc-300 p-4 dark:border-zinc-700">
+      <div className="flex items-end gap-2 rounded-lg border border-dashed border-border p-4">
         <div className="flex flex-1 flex-col gap-1.5">
           <label className="text-sm">Nova categoria</label>
-          <Input
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Ex.: Bebidas"
-          />
+          <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="Ex.: Bebidas" />
         </div>
         <Button
           type="button"
-          disabled={newCategoryName.trim().length < 2 || createCategoryMutation.isPending}
+          variant="secondary"
+          disabled={newCategoryName.trim().length < 2}
+          loading={createCategoryMutation.isPending}
           onClick={() => createCategoryMutation.mutate(newCategoryName.trim())}
         >
-          {createCategoryMutation.isPending ? 'Criando...' : 'Criar categoria'}
+          Criar categoria
         </Button>
       </div>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-zinc-500">
-          {productsQuery.data ? `${productsQuery.data.length} produto(s)` : 'Carregando...'}
+        <h2 className="text-sm font-medium text-muted">
+          {productsQuery.data ? `${productsQuery.data.length} produto(s)` : ''}
         </h2>
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">SKU</th>
-                <th className="px-4 py-2 font-medium">Preço</th>
-                <th className="px-4 py-2 font-medium">Estoque</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {productsQuery.data?.map((product) => (
-                <Fragment key={product.id}>
-                  <tr className="border-t border-zinc-200 dark:border-zinc-800">
-                    <td className="px-4 py-2">{product.name}</td>
-                    <td className="px-4 py-2 text-zinc-500">{product.sku ?? '—'}</td>
-                    <td className="px-4 py-2">{formatCentsToBRL(product.priceCents)}</td>
-                    <td className="px-4 py-2">
-                      {product.trackStock ? product.stockQuantity : <span className="text-zinc-400">—</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      {product.active ? (
-                        <span className="text-green-600">Ativo</span>
-                      ) : (
-                        <span className="text-zinc-400">Inativo</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {product.trackStock && (
-                        <button
-                          type="button"
-                          className="text-xs text-zinc-500 underline"
-                          onClick={() => {
-                            setStockError(null);
-                            setStockFormProductId(stockFormProductId === product.id ? null : product.id);
-                          }}
-                        >
-                          Movimentar
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                  {stockFormProductId === product.id && (
-                    <tr className="border-t border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-                      <td className="px-4 py-3" colSpan={6}>
-                        <div className="flex flex-wrap items-end gap-3">
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-xs">Tipo</label>
-                            <select
-                              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                              value={stockType}
-                              onChange={(e) => setStockType(e.target.value as typeof stockType)}
-                            >
-                              <option value="entrada">Entrada</option>
-                              <option value="saida">Saída</option>
-                              <option value="ajuste">Ajuste (correção de contagem)</option>
-                            </select>
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-xs">
-                              {stockType === 'ajuste' ? 'Delta (pode ser negativo)' : 'Quantidade'}
-                            </label>
-                            <Input
-                              className="w-28"
-                              value={stockQuantity}
-                              onChange={(e) => setStockQuantity(e.target.value)}
-                              placeholder={stockType === 'ajuste' ? '-5' : '0'}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <label className="text-xs">Motivo (opcional)</label>
-                            <Input
-                              className="w-48"
-                              value={stockReason}
-                              onChange={(e) => setStockReason(e.target.value)}
-                            />
-                          </div>
-                          <Button
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!productsQuery.data ? (
+            <SkeletonRows rows={4} cols={5} />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Nome</th>
+                  <th className="px-4 py-2 font-medium">SKU</th>
+                  <th className="px-4 py-2 font-medium">Preço</th>
+                  <th className="px-4 py-2 font-medium">Estoque</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {productsQuery.data.map((product) => (
+                  <Fragment key={product.id}>
+                    <tr className="border-t border-border">
+                      <td className="px-4 py-2">{product.name}</td>
+                      <td className="px-4 py-2 text-muted">{product.sku ?? '—'}</td>
+                      <td className="px-4 py-2">{formatCentsToBRL(product.priceCents)}</td>
+                      <td className="px-4 py-2">
+                        {product.trackStock ? product.stockQuantity : <span className="text-zinc-400">—</span>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge variant={product.active ? 'success' : 'neutral'}>
+                          {product.active ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {product.trackStock && (
+                          <button
                             type="button"
-                            disabled={!stockQuantity || stockMovementMutation.isPending}
-                            onClick={() => stockMovementMutation.mutate(product.id)}
+                            className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                            onClick={() => {
+                              setStockError(null);
+                              setStockFormProductId(stockFormProductId === product.id ? null : product.id);
+                            }}
                           >
-                            {stockMovementMutation.isPending ? 'Salvando...' : 'Confirmar'}
-                          </Button>
-                          {stockError && <p className="text-sm text-red-600">{stockError}</p>}
-                        </div>
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                            Movimentar
+                          </button>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))}
-              {productsQuery.data?.length === 0 && (
-                <tr>
-                  <td className="px-4 py-6 text-center text-zinc-400" colSpan={6}>
-                    Nenhum produto cadastrado ainda.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    <AnimatePresence initial={false}>
+                      {stockFormProductId === product.id && (
+                        <motion.tr
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="border-t border-border bg-zinc-50 dark:bg-zinc-900"
+                        >
+                          <td className="px-4 py-3" colSpan={6}>
+                            <div className="flex flex-wrap items-end gap-3">
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-xs">Tipo</label>
+                                <select
+                                  className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+                                  value={stockType}
+                                  onChange={(e) => setStockType(e.target.value as typeof stockType)}
+                                >
+                                  <option value="entrada">Entrada</option>
+                                  <option value="saida">Saída</option>
+                                  <option value="ajuste">Ajuste (correção de contagem)</option>
+                                </select>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-xs">
+                                  {stockType === 'ajuste' ? 'Delta (pode ser negativo)' : 'Quantidade'}
+                                </label>
+                                <Input
+                                  className="w-28"
+                                  value={stockQuantity}
+                                  onChange={(e) => setStockQuantity(e.target.value)}
+                                  placeholder={stockType === 'ajuste' ? '-5' : '0'}
+                                />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-xs">Motivo (opcional)</label>
+                                <Input className="w-48" value={stockReason} onChange={(e) => setStockReason(e.target.value)} />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={!stockQuantity}
+                                loading={stockMovementMutation.isPending}
+                                onClick={() => stockMovementMutation.mutate(product.id)}
+                              >
+                                Confirmar
+                              </Button>
+                              {stockError && <p className="text-sm text-red-600">{stockError}</p>}
+                            </div>
+                          </td>
+                        </motion.tr>
+                      )}
+                    </AnimatePresence>
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {productsQuery.data?.length === 0 && <EmptyState icon={Package} message="Nenhum produto cadastrado ainda." />}
         </div>
       </div>
-    </main>
+    </>
   );
 }

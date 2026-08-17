@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
 import { registerTenantSchema, type AuthTokens, type RegisterTenantInput } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -35,18 +36,21 @@ export default function RegisterPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
+    <motion.main
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16"
+    >
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Criar conta no PCAARB</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="text-sm font-semibold tracking-tight text-accent">PCAARB</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Criar conta</h1>
+        <p className="mt-1 text-sm text-muted">
           Comece a vender hoje mesmo — {process.env.NEXT_PUBLIC_TRIAL_DAYS ?? '14'} dias grátis.
         </p>
       </div>
 
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={handleSubmit((values) => mutation.mutate(values))}
-      >
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
         <Field label="Nome da empresa" error={errors.companyName?.message}>
           <Input {...register('companyName')} />
         </Field>
@@ -69,18 +73,18 @@ export default function RegisterPage() {
 
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? 'Criando conta...' : 'Criar conta grátis'}
+        <Button type="submit" loading={mutation.isPending}>
+          Criar conta grátis
         </Button>
       </form>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-sm text-muted">
         Já tem conta?{' '}
-        <Link href="/login" className="font-medium text-zinc-900 underline dark:text-zinc-50">
+        <Link href="/login" className="font-medium text-accent hover:underline">
           Entrar
         </Link>
       </p>
-    </main>
+    </motion.main>
   );
 }
 

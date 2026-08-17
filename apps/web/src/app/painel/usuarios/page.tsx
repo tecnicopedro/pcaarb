@@ -2,33 +2,23 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
+import { Mail, UserPlus, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { inviteUserSchema, type InviteUserInput, type Role, type User, type UserInvite } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useAccessToken } from '@/lib/use-access-token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-const ROLE_LABELS: Record<Role, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  financeiro: 'Financeiro',
-  operador_caixa: 'Operador de caixa',
-};
+import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonRows } from '@/components/ui/skeleton';
+import { ROLE_LABELS } from '@/lib/role-labels';
 
 export default function UsuariosPage() {
-  const router = useRouter();
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/login');
-    }
-  }, [accessToken, router]);
 
   const usersQuery = useQuery({
     queryKey: ['users'],
@@ -60,9 +50,10 @@ export default function UsuariosPage() {
   const inviteMutation = useMutation({
     mutationFn: (values: InviteUserInput) =>
       apiFetch<UserInvite>('/users/invite', { method: 'POST', accessToken: accessToken!, body: values }),
-    onSuccess: () => {
+    onSuccess: (invite) => {
       reset({ role: 'operador_caixa', email: '' });
       invalidateAll();
+      toast.success(`Convite enviado para ${invite.email}`);
     },
     onError: (error) => {
       if (error instanceof ApiError) {
@@ -73,17 +64,21 @@ export default function UsuariosPage() {
 
   const revokeMutation = useMutation({
     mutationFn: (id: string) => apiFetch(`/users/invites/${id}`, { method: 'DELETE', accessToken: accessToken! }),
-    onSuccess: invalidateAll,
+    onSuccess: () => {
+      invalidateAll();
+      toast.success('Convite revogado');
+    },
   });
 
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: Role }) =>
       apiFetch(`/users/${id}/role`, { method: 'PATCH', accessToken: accessToken!, body: { role } }),
-    onSuccess: invalidateAll,
+    onSuccess: () => {
+      invalidateAll();
+      toast.success('Papel atualizado');
+    },
     onError: (error) => {
-      if (error instanceof ApiError) {
-        window.alert(error.message);
-      }
+      toast.error(error instanceof ApiError ? error.message : 'Erro inesperado ao atualizar o papel');
     },
   });
 
@@ -92,19 +87,14 @@ export default function UsuariosPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-8 px-6 py-16">
-      <div>
-        <Link href="/painel" className="text-sm text-zinc-500 underline">
-          &larr; Painel
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Usuários</h1>
-      </div>
+    <>
+      <h1 className="text-2xl font-semibold tracking-tight">Usuários</h1>
 
-      <form
-        className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-        onSubmit={handleSubmit((values) => inviteMutation.mutate(values))}
-      >
-        <h2 className="text-sm font-medium">Convidar usuário</h2>
+      <Card as="form" className="flex flex-col gap-4" onSubmit={handleSubmit((values) => inviteMutation.mutate(values))}>
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <UserPlus className="h-4 w-4" />
+          Convidar usuário
+        </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className="text-sm">E-mail</label>
@@ -113,10 +103,7 @@ export default function UsuariosPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm">Papel</label>
-            <select
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              {...register('role')}
-            >
+            <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('role')}>
               {Object.entries(ROLE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -126,86 +113,108 @@ export default function UsuariosPage() {
           </div>
         </div>
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        <Button type="submit" disabled={inviteMutation.isPending} className="self-start">
-          {inviteMutation.isPending ? 'Enviando...' : 'Enviar convite'}
+        <Button type="submit" loading={inviteMutation.isPending} className="self-start">
+          Enviar convite
         </Button>
-      </form>
+      </Card>
 
-      {invitesQuery.data && invitesQuery.data.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-zinc-500">Convites pendentes</h2>
-          <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <AnimatePresence initial={false}>
+        {invitesQuery.data && invitesQuery.data.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex flex-col gap-2"
+          >
+            <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted">
+              <Mail className="h-3.5 w-3.5" />
+              Convites pendentes
+            </h2>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">E-mail</th>
+                    <th className="px-4 py-2 font-medium">Papel</th>
+                    <th className="px-4 py-2 font-medium">Expira em</th>
+                    <th className="px-4 py-2 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence initial={false}>
+                    {invitesQuery.data.map((invite) => (
+                      <motion.tr
+                        key={invite.id}
+                        layout
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="border-t border-border"
+                      >
+                        <td className="px-4 py-2">{invite.email}</td>
+                        <td className="px-4 py-2">{ROLE_LABELS[invite.role]}</td>
+                        <td className="px-4 py-2">{new Date(invite.expiresAt).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            type="button"
+                            className="text-xs text-red-600 hover:underline"
+                            disabled={revokeMutation.isPending}
+                            onClick={() => revokeMutation.mutate(invite.id)}
+                          >
+                            Revogar
+                          </button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium text-muted">{usersQuery.data ? `${usersQuery.data.length} usuário(s)` : ''}</h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!usersQuery.data ? (
+            <SkeletonRows rows={3} cols={3} />
+          ) : (
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
                 <tr>
+                  <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">E-mail</th>
                   <th className="px-4 py-2 font-medium">Papel</th>
-                  <th className="px-4 py-2 font-medium">Expira em</th>
-                  <th className="px-4 py-2 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
-                {invitesQuery.data.map((invite) => (
-                  <tr key={invite.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                    <td className="px-4 py-2">{invite.email}</td>
-                    <td className="px-4 py-2">{ROLE_LABELS[invite.role]}</td>
-                    <td className="px-4 py-2">{new Date(invite.expiresAt).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        className="text-xs text-red-600 underline"
-                        disabled={revokeMutation.isPending}
-                        onClick={() => revokeMutation.mutate(invite.id)}
+                {usersQuery.data.map((user) => (
+                  <tr key={user.id} className="border-t border-border">
+                    <td className="px-4 py-2">{user.name}</td>
+                    <td className="px-4 py-2">{user.email}</td>
+                    <td className="px-4 py-2">
+                      <select
+                        className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+                        value={user.role}
+                        disabled={roleMutation.isPending}
+                        onChange={(event) => roleMutation.mutate({ id: user.id, role: event.target.value as Role })}
                       >
-                        Revogar
-                      </button>
+                        {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-zinc-500">
-          {usersQuery.data ? `${usersQuery.data.length} usuário(s)` : 'Carregando...'}
-        </h2>
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">E-mail</th>
-                <th className="px-4 py-2 font-medium">Papel</th>
-              </tr>
-            </thead>
-            <tbody>
-              {usersQuery.data?.map((user) => (
-                <tr key={user.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-4 py-2">{user.name}</td>
-                  <td className="px-4 py-2">{user.email}</td>
-                  <td className="px-4 py-2">
-                    <select
-                      className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                      value={user.role}
-                      disabled={roleMutation.isPending}
-                      onChange={(event) => roleMutation.mutate({ id: user.id, role: event.target.value as Role })}
-                    >
-                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          )}
+          {usersQuery.data?.length === 0 && <EmptyState icon={Users} message="Nenhum usuário cadastrado ainda." />}
         </div>
       </div>
-    </main>
+    </>
   );
 }

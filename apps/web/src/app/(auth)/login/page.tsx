@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
 import { loginSchema, type AuthTokens, type LoginInput } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -34,16 +35,19 @@ export default function LoginPage() {
   });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
+    <motion.main
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6"
+    >
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Entrar no PCAARB</h1>
-        <p className="mt-1 text-sm text-zinc-500">Acesse o painel da sua loja.</p>
+        <p className="text-sm font-semibold tracking-tight text-accent">PCAARB</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Entrar</h1>
+        <p className="mt-1 text-sm text-muted">Acesse o painel da sua loja.</p>
       </div>
 
-      <form
-        className="flex flex-col gap-4"
-        onSubmit={handleSubmit((values) => mutation.mutate(values))}
-      >
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             E-mail
@@ -62,17 +66,17 @@ export default function LoginPage() {
 
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? 'Entrando...' : 'Entrar'}
+        <Button type="submit" loading={mutation.isPending}>
+          Entrar
         </Button>
       </form>
 
-      <p className="text-center text-sm text-zinc-500">
+      <p className="text-center text-sm text-muted">
         Ainda não tem conta?{' '}
-        <Link href="/registrar" className="font-medium text-zinc-900 underline dark:text-zinc-50">
+        <Link href="/registrar" className="font-medium text-accent hover:underline">
           Cadastre sua loja
         </Link>
       </p>
-    </main>
+    </motion.main>
   );
 }

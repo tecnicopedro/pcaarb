@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, NotFoundException, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   inviteUserSchema,
@@ -11,6 +11,7 @@ import { CheckAbilities } from '../../common/decorators/check-abilities.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import type { UserRow } from '../../database/schema/index';
+import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from './users.service';
 
 // passwordHash nunca sai da API.
@@ -22,7 +23,24 @@ function toSafeUser({ passwordHash: _passwordHash, ...safeUser }: UserRow) {
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly tenantsService: TenantsService,
+  ) {}
+
+  // Sem @CheckAbilities: ler a própria identidade não é gestão de usuários,
+  // todo papel pode ver quem é e em que empresa está.
+  @Get('me')
+  async me(@CurrentUser() user: JwtPayload) {
+    const [me, tenant] = await Promise.all([
+      this.usersService.findById(user.sub),
+      this.tenantsService.findById(user.tenantId),
+    ]);
+    if (!me || !tenant) {
+      throw new NotFoundException('Usuário ou tenant não encontrado');
+    }
+    return { user: toSafeUser(me), tenant };
+  }
 
   @CheckAbilities({ action: 'read', subject: 'User' })
   @Get()

@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
 import { acceptInviteSchema, type AcceptInviteInput, type AuthTokens } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -42,9 +43,9 @@ export function AcceptInviteForm() {
 
   if (!inviteId || !token) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
         <p className="text-sm text-red-600">Link de convite inválido. Peça um novo convite a quem te chamou.</p>
-        <Link href="/login" className="text-sm font-medium text-zinc-900 underline dark:text-zinc-50">
+        <Link href="/login" className="text-sm font-medium text-accent hover:underline">
           Ir para o login
         </Link>
       </main>
@@ -52,10 +53,16 @@ export function AcceptInviteForm() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6 py-16">
+    <motion.main
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6"
+    >
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Aceitar convite</h1>
-        <p className="mt-1 text-sm text-zinc-500">Defina seu nome e senha para entrar no PCAARB.</p>
+        <p className="text-sm font-semibold tracking-tight text-accent">PCAARB</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Aceitar convite</h1>
+        <p className="mt-1 text-sm text-muted">Defina seu nome e senha para entrar no PCAARB.</p>
       </div>
 
       <form
@@ -79,10 +86,10 @@ export function AcceptInviteForm() {
 
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
-        <Button type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? 'Entrando...' : 'Aceitar convite e entrar'}
+        <Button type="submit" loading={mutation.isPending}>
+          Aceitar convite e entrar
         </Button>
       </form>
-    </main>
+    </motion.main>
   );
 }

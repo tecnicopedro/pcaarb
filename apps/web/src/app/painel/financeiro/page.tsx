@@ -2,10 +2,8 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm, useWatch } from 'react-hook-form';
+import { ArrowDownCircle, ArrowUpCircle, Receipt, Wallet } from 'lucide-react';
 import { z } from 'zod';
 import type { Customer, FinanceCashflowSummary, FinanceEntry, Supplier } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -13,6 +11,10 @@ import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonRows } from '@/components/ui/skeleton';
 
 const entryFormSchema = z.object({
   type: z.enum(['payable', 'receivable']),
@@ -25,26 +27,13 @@ const entryFormSchema = z.object({
 
 type EntryFormValues = z.infer<typeof entryFormSchema>;
 
-const STATUS_LABELS: Record<FinanceEntry['status'], string> = {
-  pending: 'Pendente',
-  paid: 'Paga',
-  canceled: 'Cancelada',
-};
-
 function isOverdue(entry: FinanceEntry): boolean {
   return entry.status === 'pending' && entry.dueDate < new Date().toISOString().slice(0, 10);
 }
 
 export default function FinanceiroPage() {
-  const router = useRouter();
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/login');
-    }
-  }, [accessToken, router]);
 
   const entriesQuery = useQuery({
     queryKey: ['finance-entries'],
@@ -130,54 +119,49 @@ export default function FinanceiroPage() {
   const summary = summaryQuery.data;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <div>
-          <Link href="/painel" className="text-sm text-zinc-500 underline">
-            &larr; Painel
-          </Link>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Financeiro</h1>
-        </div>
+    <>
+      <h1 className="text-2xl font-semibold tracking-tight">Financeiro</h1>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <ArrowUpCircle className="h-3.5 w-3.5" />A receber (pendente)
+          </div>
+          <p className="text-lg font-semibold">{summary ? formatCentsToBRL(summary.pendingReceivableCents) : '—'}</p>
+        </Card>
+        <Card className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <ArrowDownCircle className="h-3.5 w-3.5" />A pagar (pendente)
+          </div>
+          <p className="text-lg font-semibold">{summary ? formatCentsToBRL(summary.pendingPayableCents) : '—'}</p>
+          {summary && summary.overduePayableCents > 0 && (
+            <p className="text-xs text-red-600">{formatCentsToBRL(summary.overduePayableCents)} vencido</p>
+          )}
+        </Card>
+        <Card className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <Receipt className="h-3.5 w-3.5" />
+            Recebido
+          </div>
+          <p className="text-lg font-semibold">{summary ? formatCentsToBRL(summary.paidReceivableCents) : '—'}</p>
+        </Card>
+        <Card className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            <Wallet className="h-3.5 w-3.5" />
+            Saldo
+          </div>
+          <p className={`text-lg font-semibold ${summary && summary.netCents < 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {summary ? formatCentsToBRL(summary.netCents) : '—'}
+          </p>
+        </Card>
       </div>
 
-      {summary && (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500">A receber (pendente)</p>
-            <p className="text-lg font-semibold">{formatCentsToBRL(summary.pendingReceivableCents)}</p>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500">A pagar (pendente)</p>
-            <p className="text-lg font-semibold">{formatCentsToBRL(summary.pendingPayableCents)}</p>
-            {summary.overduePayableCents > 0 && (
-              <p className="text-xs text-red-600">{formatCentsToBRL(summary.overduePayableCents)} vencido</p>
-            )}
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500">Recebido</p>
-            <p className="text-lg font-semibold">{formatCentsToBRL(summary.paidReceivableCents)}</p>
-          </div>
-          <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500">Saldo (recebido - pago)</p>
-            <p className={`text-lg font-semibold ${summary.netCents < 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {formatCentsToBRL(summary.netCents)}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <form
-        className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-        onSubmit={handleSubmit((values) => createMutation.mutate(values))}
-      >
+      <Card as="form" className="flex flex-col gap-4" onSubmit={handleSubmit((values) => createMutation.mutate(values))}>
         <h2 className="text-sm font-medium">Nova conta</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm">Tipo</label>
-            <select
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              {...register('type')}
-            >
+            <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('type')}>
               <option value="payable">A pagar</option>
               <option value="receivable">A receber</option>
             </select>
@@ -200,10 +184,7 @@ export default function FinanceiroPage() {
           {selectedType === 'receivable' && (
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label className="text-sm">Cliente (opcional)</label>
-              <select
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                {...register('customerId')}
-              >
+              <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('customerId')}>
                 <option value="">Sem cliente</option>
                 {customersQuery.data?.map((customer) => (
                   <option key={customer.id} value={customer.id}>
@@ -216,10 +197,7 @@ export default function FinanceiroPage() {
           {selectedType === 'payable' && (
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <label className="text-sm">Fornecedor (opcional)</label>
-              <select
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                {...register('supplierId')}
-              >
+              <select className="h-10 rounded-md border border-border bg-card px-3 text-sm" {...register('supplierId')}>
                 <option value="">Sem fornecedor</option>
                 {suppliersQuery.data?.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
@@ -231,78 +209,76 @@ export default function FinanceiroPage() {
           )}
         </div>
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-        <Button type="submit" disabled={createMutation.isPending} className="self-start">
-          {createMutation.isPending ? 'Salvando...' : 'Adicionar conta'}
+        <Button type="submit" loading={createMutation.isPending} className="self-start">
+          Adicionar conta
         </Button>
-      </form>
+      </Card>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium text-zinc-500">
-          {entriesQuery.data ? `${entriesQuery.data.length} conta(s)` : 'Carregando...'}
-        </h2>
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
-              <tr>
-                <th className="px-4 py-2 font-medium">Tipo</th>
-                <th className="px-4 py-2 font-medium">Descrição</th>
-                <th className="px-4 py-2 font-medium">Valor</th>
-                <th className="px-4 py-2 font-medium">Vencimento</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {entriesQuery.data?.map((entry) => (
-                <tr key={entry.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-4 py-2">{entry.type === 'payable' ? 'A pagar' : 'A receber'}</td>
-                  <td className="px-4 py-2">{entry.description}</td>
-                  <td className="px-4 py-2">{formatCentsToBRL(entry.amountCents)}</td>
-                  <td className="px-4 py-2">{entry.dueDate}</td>
-                  <td className="px-4 py-2">
-                    {isOverdue(entry) ? (
-                      <span className="text-red-600">Vencida</span>
-                    ) : entry.status === 'paid' ? (
-                      <span className="text-green-600">{STATUS_LABELS[entry.status]}</span>
-                    ) : (
-                      <span className="text-zinc-500">{STATUS_LABELS[entry.status]}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {entry.status === 'pending' && (
-                      <div className="flex justify-end gap-3">
-                        <button
-                          type="button"
-                          className="text-xs text-green-600 underline"
-                          disabled={payMutation.isPending}
-                          onClick={() => payMutation.mutate(entry.id)}
-                        >
-                          Pagar
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs text-zinc-500 underline"
-                          disabled={cancelMutation.isPending}
-                          onClick={() => cancelMutation.mutate(entry.id)}
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {entriesQuery.data?.length === 0 && (
+        <h2 className="text-sm font-medium text-muted">{entriesQuery.data ? `${entriesQuery.data.length} conta(s)` : ''}</h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!entriesQuery.data ? (
+            <SkeletonRows rows={4} cols={5} />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
                 <tr>
-                  <td className="px-4 py-6 text-center text-zinc-400" colSpan={6}>
-                    Nenhuma conta cadastrada ainda.
-                  </td>
+                  <th className="px-4 py-2 font-medium">Tipo</th>
+                  <th className="px-4 py-2 font-medium">Descrição</th>
+                  <th className="px-4 py-2 font-medium">Valor</th>
+                  <th className="px-4 py-2 font-medium">Vencimento</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium"></th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {entriesQuery.data.map((entry) => (
+                  <tr key={entry.id} className="border-t border-border">
+                    <td className="px-4 py-2">{entry.type === 'payable' ? 'A pagar' : 'A receber'}</td>
+                    <td className="px-4 py-2">{entry.description}</td>
+                    <td className="px-4 py-2">{formatCentsToBRL(entry.amountCents)}</td>
+                    <td className="px-4 py-2">{entry.dueDate}</td>
+                    <td className="px-4 py-2">
+                      {isOverdue(entry) ? (
+                        <Badge variant="danger">Vencida</Badge>
+                      ) : entry.status === 'paid' ? (
+                        <Badge variant="success">Paga</Badge>
+                      ) : entry.status === 'canceled' ? (
+                        <Badge variant="neutral">Cancelada</Badge>
+                      ) : (
+                        <Badge variant="warning">Pendente</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {entry.status === 'pending' && (
+                        <div className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            className="text-xs text-green-600 hover:underline"
+                            disabled={payMutation.isPending}
+                            onClick={() => payMutation.mutate(entry.id)}
+                          >
+                            Pagar
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-muted hover:underline"
+                            disabled={cancelMutation.isPending}
+                            onClick={() => cancelMutation.mutate(entry.id)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {entriesQuery.data?.length === 0 && <EmptyState icon={Wallet} message="Nenhuma conta cadastrada ainda." />}
         </div>
       </div>
-    </main>
+    </>
   );
 }

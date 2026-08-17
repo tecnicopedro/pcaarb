@@ -1,67 +1,79 @@
 'use client';
 
-import { useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { useAccessToken } from '@/lib/use-access-token';
+import { motion } from 'motion/react';
+import { Package, ShoppingCart, Users, Wallet } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useCurrentUser } from '@/lib/use-current-user';
+
+const SHORTCUTS = [
+  { href: '/painel/pdv', label: 'PDV', description: 'Abrir caixa e vender', icon: ShoppingCart },
+  { href: '/painel/produtos', label: 'Produtos', description: 'Cadastro, categorias e estoque', icon: Package },
+  { href: '/painel/financeiro', label: 'Financeiro', description: 'Contas a pagar e receber', icon: Wallet },
+  { href: '/painel/usuarios', label: 'Usuários', description: 'Convidar e gerenciar papéis', icon: Users },
+];
+
+function daysUntil(dateIso: string): number {
+  return Math.ceil((new Date(dateIso).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
 
 export default function PainelPage() {
-  const router = useRouter();
-  const accessToken = useAccessToken();
-
-  useEffect(() => {
-    if (accessToken === null) {
-      router.replace('/login');
-    }
-  }, [accessToken, router]);
-
-  function logout() {
-    localStorage.removeItem('pcaarb_access_token');
-    localStorage.removeItem('pcaarb_refresh_token');
-    router.replace('/login');
-  }
-
-  if (!accessToken) {
-    return null;
-  }
+  const meQuery = useCurrentUser();
+  const me = meQuery.data;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-16">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Painel PCAARB</h1>
-        <Button onClick={logout}>Sair</Button>
+    <>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {me ? `Olá, ${me.user.name.split(' ')[0]}` : 'Painel'}
+        </h1>
+        {me ? (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-sm text-muted">{me.tenant.companyName}</span>
+            {me.tenant.status === 'trial' && me.tenant.trialEndsAt && (
+              <Badge variant={daysUntil(me.tenant.trialEndsAt) <= 3 ? 'warning' : 'accent'}>
+                Trial — {Math.max(daysUntil(me.tenant.trialEndsAt), 0)} dia(s) restante(s)
+              </Badge>
+            )}
+            {me.tenant.status === 'active' && <Badge variant="success">Assinatura ativa</Badge>}
+            {(me.tenant.status === 'blocked' || me.tenant.status === 'canceled') && (
+              <Badge variant="danger">Acesso bloqueado</Badge>
+            )}
+          </div>
+        ) : (
+          <Skeleton className="mt-2 h-4 w-40" />
+        )}
       </div>
-      <nav className="flex flex-col gap-2">
-        <Link
-          href="/painel/pdv"
-          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-        >
-          PDV — abrir caixa e vender
-        </Link>
-        <Link
-          href="/painel/produtos"
-          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-        >
-          Produtos, categorias e estoque
-        </Link>
-        <Link
-          href="/painel/financeiro"
-          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-        >
-          Financeiro — contas a pagar e receber
-        </Link>
-        <Link
-          href="/painel/usuarios"
-          className="rounded-lg border border-zinc-200 px-4 py-3 text-sm font-medium hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-        >
-          Usuários — convidar e gerenciar papéis
-        </Link>
-      </nav>
-      <p className="text-sm text-zinc-500">
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {SHORTCUTS.map((shortcut, index) => (
+          <motion.div
+            key={shortcut.href}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: index * 0.04 }}
+          >
+            <Link href={shortcut.href}>
+              <Card className="flex items-center gap-4 transition-colors hover:border-accent">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                  <shortcut.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-medium">{shortcut.label}</p>
+                  <p className="text-sm text-muted">{shortcut.description}</p>
+                </div>
+              </Card>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+
+      <p className="text-sm text-muted">
         Cada venda no PDV já emite NFC-e e confirma pagamento via gateway em modo sandbox — troca para um
         provedor real (Focus NFe, Pagar.me...) quando a conta/credenciais existirem (ver docs/03).
       </p>
-    </main>
+    </>
   );
 }
