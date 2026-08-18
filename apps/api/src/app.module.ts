@@ -31,6 +31,7 @@ import { PermissionOverridesModule } from './modules/permission-overrides/permis
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { StoresModule } from './modules/stores/stores.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { BillingModule } from './modules/billing/billing.module';
     LoyaltyModule,
     CommissionsModule,
     BillingModule,
+    StoresModule,
   ],
   providers: [
     AbilityFactory,

@@ -5,6 +5,7 @@ export const cashSessionStatusSchema = z.enum(['open', 'closed']);
 export const cashSessionSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
+  storeId: z.string().uuid(),
   openedBy: z.string().uuid(),
   openingAmountCents: z.number().int(),
   openedAt: z.string().datetime(),
@@ -17,6 +18,7 @@ export const cashSessionSchema = z.object({
 export type CashSession = z.infer<typeof cashSessionSchema>;
 
 export const openCashSessionSchema = z.object({
+  storeId: z.string().uuid(),
   openingAmountCents: z.number().int().nonnegative('Valor de abertura não pode ser negativo'),
 });
 

@@ -85,3 +85,12 @@ export const commissionReportSchema = z.object({
 });
 
 export type CommissionReport = z.infer<typeof commissionReportSchema>;
+
+export const storeRankingItemSchema = z.object({
+  storeId: z.string().uuid(),
+  storeName: z.string(),
+  totalSales: z.number(),
+  revenueCents: z.number(),
+});
+
+export type StoreRankingItem = z.infer<typeof storeRankingItemSchema>;

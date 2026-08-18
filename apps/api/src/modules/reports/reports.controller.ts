@@ -49,6 +49,15 @@ export class ReportsController {
   }
 
   @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('lojas-ranking')
+  storeRanking(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery,
+  ) {
+    return this.reportsService.storeRanking(user.tenantId, query);
+  }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
   @Get('comissoes')
   commissionReport(
     @CurrentUser() user: JwtPayload,

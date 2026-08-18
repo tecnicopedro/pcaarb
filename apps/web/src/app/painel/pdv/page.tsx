@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
 import { Gift, Plus, Receipt, ShoppingCart, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CashSession, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale } from '@pcaarb/shared';
+import type { CashSession, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale, Store } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -83,18 +83,33 @@ export default function PdvPage() {
     enabled: !!accessToken && !!selectedCustomerId,
   });
 
+  const storesQuery = useQuery({
+    queryKey: ['stores'],
+    queryFn: () => apiFetch<Store[]>('/stores', { accessToken: accessToken! }),
+    enabled: !!accessToken && !sessionQuery.data,
+  });
+  const activeStores = storesQuery.data?.filter((store) => store.active) ?? [];
+
   const [openingAmount, setOpeningAmount] = useState('');
+  // A maioria dos tenants tem 1 loja só (plano Starter/Profissional) — nesse
+  // caso nem mostra seletor, já usa a única loja direto.
+  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const effectiveStoreId = selectedStoreId || (activeStores.length === 1 ? activeStores[0]!.id : '');
+
   const openSessionMutation = useMutation({
     mutationFn: () =>
       apiFetch<CashSession>('/cash-sessions', {
         method: 'POST',
         accessToken: accessToken!,
-        body: { openingAmountCents: parseBRLToCents(openingAmount || '0') },
+        body: { storeId: effectiveStoreId, openingAmountCents: parseBRLToCents(openingAmount || '0') },
       }),
     onSuccess: () => {
       setOpeningAmount('');
       queryClient.invalidateQueries({ queryKey: ['current-cash-session'] });
       toast.success('Caixa aberto');
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao abrir o caixa');
     },
   });
 
@@ -225,6 +240,23 @@ export default function PdvPage() {
           <h2 className="font-medium">Abrir caixa</h2>
           <p className="text-sm text-muted">Informe o valor em dinheiro que está começando no caixa.</p>
           <div className="flex items-end gap-2">
+            {activeStores.length > 1 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm">Loja</label>
+                <select
+                  className="h-10 rounded-md border border-border bg-card px-3 text-sm"
+                  value={selectedStoreId}
+                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  {activeStores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex flex-1 flex-col gap-1.5">
               <label className="text-sm">Valor de abertura (R$)</label>
               <Input
@@ -233,7 +265,11 @@ export default function PdvPage() {
                 onChange={(e) => setOpeningAmount(e.target.value)}
               />
             </div>
-            <Button loading={openSessionMutation.isPending} onClick={() => openSessionMutation.mutate()}>
+            <Button
+              loading={openSessionMutation.isPending}
+              disabled={!effectiveStoreId}
+              onClick={() => openSessionMutation.mutate()}
+            >
               Abrir caixa
             </Button>
           </div>

@@ -6,6 +6,7 @@ import { runWithTenant } from '../../database/tenant-context';
 import {
   cashSessions,
   cashMovements,
+  stores,
   type CashSessionRow,
   type CashMovementRow,
 } from '../../database/schema/index';
@@ -54,10 +55,23 @@ export class CashSessionsService {
     }
 
     return runWithTenant(this.db, tenantId, async (tx) => {
+      const [store] = await tx
+        .select({ id: stores.id, active: stores.active })
+        .from(stores)
+        .where(and(eq(stores.id, input.storeId), eq(stores.tenantId, tenantId)))
+        .limit(1);
+      if (!store) {
+        throw new NotFoundException('Loja não encontrada');
+      }
+      if (!store.active) {
+        throw new BadRequestException('Loja está inativa');
+      }
+
       const [session] = await tx
         .insert(cashSessions)
         .values({
           tenantId,
+          storeId: input.storeId,
           openedBy: userId,
           openingAmountCents: input.openingAmountCents,
         })

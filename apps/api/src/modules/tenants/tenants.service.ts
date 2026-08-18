@@ -1,12 +1,12 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 // Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
 import { ConfigService } from '@nestjs/config';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
 import type { RegisterTenantInput } from '@pcaarb/shared';
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
-import { tenants, users, type TenantRow, type UserRow } from '../../database/schema/index';
+import { tenants, users, stores, type TenantRow, type UserRow } from '../../database/schema/index';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -75,6 +75,20 @@ export class TenantsService {
         .returning();
       if (!owner) {
         throw new Error('Falha ao criar usuário owner');
+      }
+
+      // Toda venda/caixa exige uma loja — tenant nasce com uma (mesmo em
+      // plano Starter/Profissional, que não permitem criar uma 2ª). Ver
+      // stores.schema.ts e StoresService.create (gate por plano).
+      // stores tem RLS (é dado de negócio, diferente de tenants/users) — ao
+      // contrário do resto deste método, que roda fora de runWithTenant
+      // porque o tenant ainda não existia, este insert precisa do contexto
+      // setado manualmente na mesma transação (mesmo mecanismo de
+      // tenant-context.ts, só que sem abrir uma transação nova).
+      await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenant.id}, true)`);
+      const [store] = await tx.insert(stores).values({ tenantId: tenant.id, name: input.companyName }).returning();
+      if (!store) {
+        throw new Error('Falha ao criar loja padrão');
       }
 
       return { tenant, owner };

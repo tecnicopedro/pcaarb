@@ -26,3 +26,4 @@ export * from './commission-settings.schema';
 export * from './seller-commission-rates.schema';
 export * from './subscriptions.schema';
 export * from './subscription-invoices.schema';
+export * from './stores.schema';

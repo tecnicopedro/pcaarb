@@ -8,10 +8,11 @@ import type {
   ReportPeriodQuery,
   SalesSummary,
   SellerRankingItem,
+  StoreRankingItem,
 } from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
-import { sales, saleItems, users, financeEntries, costCenters, type SaleRow } from '../../database/schema/index';
+import { sales, saleItems, users, financeEntries, costCenters, stores, type SaleRow } from '../../database/schema/index';
 import { CommissionsService } from '../commissions/commissions.service';
 
 interface ResolvedRange {
@@ -101,6 +102,41 @@ export class ReportsService {
       .map(([sellerId, acc]) => ({
         sellerId,
         sellerName: nameById.get(sellerId) ?? 'Desconhecido',
+        totalSales: acc.totalSales,
+        revenueCents: acc.revenueCents,
+      }))
+      .sort((a, b) => b.revenueCents - a.revenueCents);
+  }
+
+  // Visão consolidada multi-loja — o valor real do plano Multi-loja (ver
+  // PRECOS-E-CUSTOS.md). Mesmo formato de sellerRanking, agrupado por loja
+  // em vez de vendedor; funciona igual para tenant de loja única (retorna
+  // uma linha só).
+  async storeRanking(tenantId: string, query: ReportPeriodQuery): Promise<StoreRankingItem[]> {
+    const range = resolveRange(query);
+    const salesInRange = await this.completedSalesInRange(tenantId, range);
+    if (salesInRange.length === 0) {
+      return [];
+    }
+
+    const storeIds = [...new Set(salesInRange.map((sale) => sale.storeId))];
+    const storeRows = await runWithTenant(this.db, tenantId, (tx) =>
+      tx.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds)),
+    );
+    const nameById = new Map(storeRows.map((store) => [store.id, store.name]));
+
+    const byStore = new Map<string, { totalSales: number; revenueCents: number }>();
+    for (const sale of salesInRange) {
+      const acc = byStore.get(sale.storeId) ?? { totalSales: 0, revenueCents: 0 };
+      acc.totalSales += 1;
+      acc.revenueCents += sale.totalCents;
+      byStore.set(sale.storeId, acc);
+    }
+
+    return [...byStore.entries()]
+      .map(([storeId, acc]) => ({
+        storeId,
+        storeName: nameById.get(storeId) ?? 'Desconhecida',
         totalSales: acc.totalSales,
         revenueCents: acc.revenueCents,
       }))

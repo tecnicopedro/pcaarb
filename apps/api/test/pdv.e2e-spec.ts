@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 // trackStock: false de propósito — estes testes cobrem o fluxo de pagamento
 // e caixa do PDV, não o desconto de estoque (isso é coberto em estoque.e2e-spec.ts).
@@ -40,16 +41,10 @@ describe('PDV (e2e)', () => {
     expect(beforeOpen.status).toBe(400);
     expect(beforeOpen.body.message).toMatch(/abra o caixa/i);
 
-    const open = await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 10_000 });
+    const open = await openCashSession(app, tenant.accessToken, 10_000);
     expect(open.status).toBe(201);
 
-    const reopen = await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 10_000 });
+    const reopen = await openCashSession(app, tenant.accessToken, 10_000);
     expect(reopen.status).toBe(409);
 
     const sale = await request(app.getHttpServer())
@@ -66,10 +61,7 @@ describe('PDV (e2e)', () => {
     const productA = await createProduct(app, tenant.accessToken, 899, 'Produto A');
     const productB = await createProduct(app, tenant.accessToken, 350, 'Produto B');
 
-    await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 0 });
+    await openCashSession(app, tenant.accessToken);
 
     // 2×899 + 3×350 = 2848; desconto 50 => total 2798
     const sale = await request(app.getHttpServer())
@@ -97,10 +89,7 @@ describe('PDV (e2e)', () => {
   it('rejeita venda quando os pagamentos não fecham com o total', async () => {
     const tenant = await registerTenant(app, 'pdv-pagamento-errado');
     const productId = await createProduct(app, tenant.accessToken, 1000);
-    await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 0 });
+    await openCashSession(app, tenant.accessToken);
 
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
@@ -118,10 +107,7 @@ describe('PDV (e2e)', () => {
       .patch(`/api/products/${productId}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ active: false });
-    await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 0 });
+    await openCashSession(app, tenant.accessToken);
 
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
@@ -135,10 +121,7 @@ describe('PDV (e2e)', () => {
   it('sangria e suprimento ficam registrados, e caixa fechado bloqueia nova venda', async () => {
     const tenant = await registerTenant(app, 'pdv-caixa');
     const productId = await createProduct(app, tenant.accessToken, 500);
-    const open = await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 10_000 });
+    const open = await openCashSession(app, tenant.accessToken, 10_000);
     const sessionId = open.body.id as string;
 
     const sangria = await request(app.getHttpServer())

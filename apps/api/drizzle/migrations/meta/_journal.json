@@ -176,6 +176,20 @@
       "when": 1787011385362,
       "tag": "0024_concerned_mordo",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787013478106,
+      "tag": "0025_magical_frank_castle",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787013479000,
+      "tag": "0026_enable_rls_stores",
+      "breakpoints": true
     }
   ]
 }

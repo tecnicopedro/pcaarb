@@ -14,6 +14,7 @@ import {
   Percent,
   ShoppingBag,
   ShoppingCart,
+  Store,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/painel/financeiro', label: 'Financeiro', icon: Wallet },
   { href: '/painel/relatorios', label: 'Relatórios', icon: BarChart3 },
   { href: '/painel/comissoes', label: 'Comissões', icon: Percent },
+  { href: '/painel/lojas', label: 'Lojas', icon: Store },
   { href: '/painel/usuarios', label: 'Usuários', icon: Users },
   { href: '/painel/assinatura', label: 'Assinatura', icon: CreditCard },
 ];

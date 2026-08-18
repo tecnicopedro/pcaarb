@@ -10,6 +10,7 @@ import type { Env } from '../src/config/env.validation';
 import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 // Mesmo helper de fidelidade.e2e-spec.ts / permissoes-granulares.e2e-spec.ts:
 // cria o usuário direto no banco, sem depender do fluxo de convite/e-mail.
@@ -32,10 +33,6 @@ async function createProduct(app: INestApplication, accessToken: string, priceCe
     .set('Authorization', `Bearer ${accessToken}`)
     .send({ name, priceCents, trackStock: false });
   return response.body.id as string;
-}
-
-async function openCashSession(app: INestApplication, accessToken: string) {
-  await request(app.getHttpServer()).post('/api/cash-sessions').set('Authorization', `Bearer ${accessToken}`).send({ openingAmountCents: 0 });
 }
 
 async function sell(app: INestApplication, accessToken: string, productId: string, priceCents: number) {

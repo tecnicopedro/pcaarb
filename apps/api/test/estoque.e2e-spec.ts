@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 async function createProduct(
   app: INestApplication,
@@ -104,10 +105,7 @@ describe('Estoque (e2e)', () => {
       .post(`/api/products/${product.id}/stock-movements`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ type: 'entrada', quantity: 5 });
-    await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 0 });
+    await openCashSession(app, tenant.accessToken);
 
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
@@ -136,10 +134,7 @@ describe('Estoque (e2e)', () => {
   it('produto com trackStock desabilitado não é afetado por vendas', async () => {
     const tenant = await registerTenant(app, 'estoque-sem-controle');
     const product = await createProduct(app, tenant.accessToken, { trackStock: false });
-    await request(app.getHttpServer())
-      .post('/api/cash-sessions')
-      .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ openingAmountCents: 0 });
+    await openCashSession(app, tenant.accessToken);
 
     const sale = await request(app.getHttpServer())
       .post('/api/sales')

@@ -9,6 +9,7 @@ import { users } from '../src/database/schema/index';
 import { PAYMENT_PROVIDER, type PaymentProvider } from '../src/modules/payments/payment-provider.interface';
 import { FISCAL_PROVIDER, type FiscalProvider } from '../src/modules/fiscal/fiscal-provider.interface';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 async function createProduct(app: INestApplication, accessToken: string, priceCents: number, name = 'Produto') {
   const response = await request(app.getHttpServer())
@@ -16,13 +17,6 @@ async function createProduct(app: INestApplication, accessToken: string, priceCe
     .set('Authorization', `Bearer ${accessToken}`)
     .send({ name, priceCents, trackStock: false });
   return response.body.id as string;
-}
-
-async function openCashSession(app: INestApplication, accessToken: string) {
-  await request(app.getHttpServer())
-    .post('/api/cash-sessions')
-    .set('Authorization', `Bearer ${accessToken}`)
-    .send({ openingAmountCents: 0 });
 }
 
 async function loginAs(app: INestApplication, db: Database, tenantId: string, role: 'operador_caixa') {

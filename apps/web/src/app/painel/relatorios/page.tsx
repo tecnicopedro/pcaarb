@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { BarChart3, Landmark, Receipt, Trophy, Wallet } from 'lucide-react';
-import type { AbcCurveItem, DreSummary, SalesSummary, SellerRankingItem } from '@pcaarb/shared';
+import { BarChart3, Landmark, Receipt, Store, Trophy, Wallet } from 'lucide-react';
+import type { AbcCurveItem, DreSummary, SalesSummary, SellerRankingItem, StoreRankingItem } from '@pcaarb/shared';
 import { apiFetch } from '@/lib/api-client';
 import { formatCentsToBRL } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -48,6 +48,12 @@ export default function RelatoriosPage() {
   const sellersQuery = useQuery({
     queryKey: ['reports', 'sellers', from, to],
     queryFn: () => apiFetch<SellerRankingItem[]>(`/reports/vendedores-ranking${period}`, { accessToken: accessToken! }),
+    enabled: !!accessToken,
+  });
+
+  const storesQuery = useQuery({
+    queryKey: ['reports', 'stores', from, to],
+    queryFn: () => apiFetch<StoreRankingItem[]>(`/reports/lojas-ranking${period}`, { accessToken: accessToken! }),
     enabled: !!accessToken,
   });
 
@@ -131,6 +137,39 @@ export default function RelatoriosPage() {
                     <td className="px-4 py-2">{seller.sellerName}</td>
                     <td className="px-4 py-2">{seller.totalSales}</td>
                     <td className="px-4 py-2">{formatCentsToBRL(seller.revenueCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted">
+          <Store className="h-3.5 w-3.5" />
+          Visão consolidada por loja
+        </h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!storesQuery.data ? (
+            <SkeletonRows rows={2} cols={3} />
+          ) : storesQuery.data.length === 0 ? (
+            <EmptyState icon={Store} message="Nenhuma venda no período." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Loja</th>
+                  <th className="px-4 py-2 font-medium">Vendas</th>
+                  <th className="px-4 py-2 font-medium">Receita</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storesQuery.data.map((store) => (
+                  <tr key={store.storeId} className="border-t border-border">
+                    <td className="px-4 py-2">{store.storeName}</td>
+                    <td className="px-4 py-2">{store.totalSales}</td>
+                    <td className="px-4 py-2">{formatCentsToBRL(store.revenueCents)}</td>
                   </tr>
                 ))}
               </tbody>

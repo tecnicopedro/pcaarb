@@ -32,7 +32,8 @@ export type Subject =
   | 'Report'
   | 'Tenant'
   | 'User'
-  | 'UserAccess';
+  | 'UserAccess'
+  | 'Store';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 
@@ -103,6 +104,7 @@ export class AbilityFactory {
           'Report',
           'User',
           'UserAccess',
+          'Store',
         ]);
         break;
       case 'financeiro':
@@ -118,12 +120,13 @@ export class AbilityFactory {
           'StockCount',
           'PurchaseOrder',
           'Report',
+          'Store',
         ]);
         break;
       case 'operador_caixa':
         can(['create', 'read'], 'Sale');
         can(['create', 'read', 'update'], 'CashSession');
-        can('read', ['Product', 'Category', 'Customer']);
+        can('read', ['Product', 'Category', 'Customer', 'Store']);
         break;
     }
   }

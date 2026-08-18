@@ -1,6 +1,7 @@
 import { pgTable, uuid, integer, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
+import { stores } from './stores.schema';
 
 export const cashSessionStatusEnum = pgEnum('cash_session_status', ['open', 'closed']);
 
@@ -9,6 +10,9 @@ export const cashSessions = pgTable('cash_sessions', {
   tenantId: uuid('tenant_id')
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
+  storeId: uuid('store_id')
+    .notNull()
+    .references(() => stores.id),
   openedBy: uuid('opened_by')
     .notNull()
     .references(() => users.id),

@@ -62,6 +62,7 @@ export type SalePayment = z.infer<typeof salePaymentSchema>;
 export const saleSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
+  storeId: z.string().uuid(),
   cashSessionId: z.string().uuid(),
   customerId: z.string().uuid().nullable(),
   sellerId: z.string().uuid(),

@@ -10,6 +10,7 @@ import type { Env } from '../src/config/env.validation';
 import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 // Mesmo motivo do helper em permissoes-granulares.e2e-spec.ts: evita depender
 // do fluxo de convite/e-mail (Resend real no ambiente de teste) e do rate
@@ -43,12 +44,6 @@ async function createCustomer(app: INestApplication, accessToken: string, name =
   return response.body.id as string;
 }
 
-async function openCashSession(app: INestApplication, accessToken: string) {
-  await request(app.getHttpServer())
-    .post('/api/cash-sessions')
-    .set('Authorization', `Bearer ${accessToken}`)
-    .send({ openingAmountCents: 0 });
-}
 
 describe('Fidelidade — pontos e resgate (e2e)', () => {
   let app: INestApplication;

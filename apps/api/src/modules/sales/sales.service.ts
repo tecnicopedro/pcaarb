@@ -97,6 +97,7 @@ export class SalesService {
         .insert(sales)
         .values({
           tenantId,
+          storeId: cashSession.storeId,
           cashSessionId: cashSession.id,
           customerId: input.customerId ?? null,
           sellerId,

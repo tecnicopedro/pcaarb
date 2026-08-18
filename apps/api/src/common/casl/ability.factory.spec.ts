@@ -122,6 +122,19 @@ describe('AbilityFactory', () => {
     expect(operadorCaixa.can('read', 'Report')).toBe(false);
   });
 
+  it('admin gerencia lojas; financeiro e operador de caixa só leem (precisam escolher loja no caixa/relatório)', () => {
+    const admin = factory.buildAbility('admin');
+    expect(admin.can('manage', 'Store')).toBe(true);
+
+    const financeiro = factory.buildAbility('financeiro');
+    expect(financeiro.can('read', 'Store')).toBe(true);
+    expect(financeiro.can('create', 'Store')).toBe(false);
+
+    const operadorCaixa = factory.buildAbility('operador_caixa');
+    expect(operadorCaixa.can('read', 'Store')).toBe(true);
+    expect(operadorCaixa.can('create', 'Store')).toBe(false);
+  });
+
   describe('overrides por usuário', () => {
     it('override "allow" concede acesso além do papel base', () => {
       const semOverride = factory.buildAbility('operador_caixa');

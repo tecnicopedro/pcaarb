@@ -12,6 +12,7 @@ import {
   Percent,
   ShoppingBag,
   ShoppingCart,
+  Store,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ const SHORTCUTS = [
   { href: '/painel/financeiro', label: 'Financeiro', description: 'Contas a pagar e receber', icon: Wallet },
   { href: '/painel/relatorios', label: 'Relatórios', description: 'Curva ABC, ticket médio e ranking', icon: BarChart3 },
   { href: '/painel/comissoes', label: 'Comissões', description: 'Taxa de comissão e relatório por vendedor', icon: Percent },
+  { href: '/painel/lojas', label: 'Lojas', description: 'Unidades da rede e visão consolidada', icon: Store },
   { href: '/painel/usuarios', label: 'Usuários', description: 'Convidar e gerenciar papéis', icon: Users },
   { href: '/painel/assinatura', label: 'Assinatura', description: 'Plano, fatura e forma de pagamento', icon: CreditCard },
 ];

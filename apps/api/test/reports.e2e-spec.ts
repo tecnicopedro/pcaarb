@@ -7,6 +7,7 @@ import { AppModule } from '../src/app.module';
 import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
+import { openCashSession } from './helpers/open-cash-session';
 
 async function loginAs(app: INestApplication, db: Database, tenantId: string, role: 'financeiro' | 'operador_caixa') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
@@ -24,12 +25,6 @@ async function createProduct(app: INestApplication, accessToken: string, priceCe
   return response.body.id as string;
 }
 
-async function openCashSession(app: INestApplication, accessToken: string) {
-  await request(app.getHttpServer())
-    .post('/api/cash-sessions')
-    .set('Authorization', `Bearer ${accessToken}`)
-    .send({ openingAmountCents: 0 });
-}
 
 async function sell(app: INestApplication, accessToken: string, productId: string, quantity: number, priceCents: number) {
   const totalCents = quantity * priceCents;
