@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { buildCorsOptions } from './cors.config';
 import type { Env } from './config/env.validation';
 
 async function bootstrap() {
@@ -11,7 +12,7 @@ async function bootstrap() {
   const config = app.get(ConfigService<Env, true>);
 
   app.use(helmet());
-  app.enableCors({ origin: config.get('CORS_ORIGIN', { infer: true }), credentials: true });
+  app.enableCors(buildCorsOptions(config.get('CORS_ORIGIN', { infer: true })));
   app.setGlobalPrefix('api');
 
   const swaggerConfig = new DocumentBuilder()

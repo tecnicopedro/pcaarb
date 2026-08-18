@@ -2,14 +2,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { BarChart3, Landmark, Receipt, Store, Trophy, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
+import { BarChart3, Download, Landmark, Receipt, Store, Trophy, Wallet } from 'lucide-react';
 import type { AbcCurveItem, DreSummary, SalesSummary, SellerRankingItem, StoreRankingItem } from '@pcaarb/shared';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, apiDownload, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRows } from '@/components/ui/skeleton';
 
@@ -31,7 +33,20 @@ export default function RelatoriosPage() {
   const accessToken = useAccessToken();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [exporting, setExporting] = useState<'vendas' | 'financeiro' | null>(null);
   const period = buildPeriodQuery(from, to);
+
+  async function handleExport(kind: 'vendas' | 'financeiro') {
+    if (!accessToken) return;
+    setExporting(kind);
+    try {
+      await apiDownload(`/reports/exportar/${kind}.csv${period}`, accessToken);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao gerar o arquivo');
+    } finally {
+      setExporting(null);
+    }
+  }
 
   const summaryQuery = useQuery({
     queryKey: ['reports', 'summary', from, to],
@@ -86,7 +101,28 @@ export default function RelatoriosPage() {
         <p className="text-sm text-muted">
           {summary ? `Período exibido: ${summary.from} a ${summary.to}` : 'Sem filtro, mostra os últimos 30 dias.'}
         </p>
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="secondary"
+            loading={exporting === 'vendas'}
+            onClick={() => handleExport('vendas')}
+          >
+            <Download className="h-4 w-4" />
+            Exportar vendas
+          </Button>
+          <Button
+            variant="secondary"
+            loading={exporting === 'financeiro'}
+            onClick={() => handleExport('financeiro')}
+          >
+            <Download className="h-4 w-4" />
+            Exportar financeiro
+          </Button>
+        </div>
       </Card>
+      <p className="-mt-2 text-xs text-muted">
+        Exporta em CSV (compatível com Excel/Google Sheets) para enviar ao contador ou abrir em qualquer planilha.
+      </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card className="flex flex-col gap-1">

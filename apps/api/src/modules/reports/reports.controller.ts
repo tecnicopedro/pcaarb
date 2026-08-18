@@ -1,10 +1,19 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { reportPeriodQuerySchema, type JwtPayload, type ReportPeriodQuery } from '@pcaarb/shared';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CheckAbilities } from '../../common/decorators/check-abilities.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ReportsService } from './reports.service';
+
+function setCsvHeaders(res: Response, filenamePrefix: string, range: ReportPeriodQuery) {
+  const suffix = range.from || range.to ? `_${range.from ?? 'inicio'}_a_${range.to ?? 'hoje'}` : '';
+  res.set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': `attachment; filename="${filenamePrefix}${suffix}.csv"`,
+  });
+}
 
 @ApiTags('reports')
 @ApiBearerAuth()
@@ -70,5 +79,27 @@ export class ReportsController {
   @Get('dre')
   dre(@CurrentUser() user: JwtPayload, @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery) {
     return this.reportsService.dre(user.tenantId, query);
+  }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('exportar/vendas.csv')
+  async exportSales(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    setCsvHeaders(res, 'vendas', query);
+    return this.reportsService.exportSalesCsv(user.tenantId, query);
+  }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('exportar/financeiro.csv')
+  async exportFinance(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    setCsvHeaders(res, 'financeiro', query);
+    return this.reportsService.exportFinanceCsv(user.tenantId, query);
   }
 }

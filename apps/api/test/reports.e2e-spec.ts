@@ -140,6 +140,80 @@ describe('Relatórios (e2e)', () => {
     expect(summaryB.body.totalSales).toBe(0);
   });
 
+  it('exporta vendas em CSV com formas de pagamento e status fiscal', async () => {
+    const tenant = await registerTenant(app, 'reports-export-vendas');
+    const product = await createProduct(app, tenant.accessToken, 1500, 'Produto Exportado');
+    await openCashSession(app, tenant.accessToken);
+    const sale = await sell(app, tenant.accessToken, product, 2, 1500); // 3000
+    expect(sale.status).toBe(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/reports/exportar/vendas.csv')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/csv');
+    expect(response.headers['content-disposition']).toContain('attachment; filename="vendas');
+    const body = response.text;
+    expect(body).toContain('Data;Hora;ID da venda;Loja;Vendedor;Cliente;Subtotal;Desconto;Total;Formas de pagamento;Status fiscal;Chave de acesso NFC-e');
+    expect(body).toContain(sale.body.id);
+    expect(body).toContain('Dinheiro: R$ 30.00');
+    // Fiscal é emitido automaticamente (sandbox) ao vender — ver fiscal-pagamento.e2e-spec.ts.
+    expect(body).toContain('Autorizada');
+  });
+
+  it('exporta financeiro em CSV com contas a pagar e receber do período', async () => {
+    const tenant = await registerTenant(app, 'reports-export-financeiro');
+    const entry = await request(app.getHttpServer())
+      .post('/api/finance-entries')
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ type: 'payable', description: 'Conta de luz', amountCents: 25000, dueDate: '2026-08-10' });
+    expect(entry.status).toBe(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/reports/exportar/financeiro.csv?from=2026-08-01&to=2026-08-31')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/csv');
+    expect(response.headers['content-disposition']).toContain('financeiro_2026-08-01_a_2026-08-31.csv');
+    const body = response.text;
+    expect(body).toContain('Tipo;Descrição;Valor;Vencimento;Status;Pago em;Cliente/Fornecedor;Centro de custo');
+    expect(body).toContain('Despesa;Conta de luz;250.00;2026-08-10;Pendente');
+  });
+
+  it('neutraliza fórmula em campo de texto livre no CSV (proteção contra CSV injection no Excel)', async () => {
+    const tenant = await registerTenant(app, 'reports-export-csv-injection');
+    const entry = await request(app.getHttpServer())
+      .post('/api/finance-entries')
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ type: 'payable', description: '=cmd|"/c calc"!A1', amountCents: 100, dueDate: '2026-08-10' });
+    expect(entry.status).toBe(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/reports/exportar/financeiro.csv')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.text).not.toContain(';=cmd|');
+    expect(response.text).toContain("'=cmd|");
+  });
+
+  it('exportação de vendas/financeiro segue a mesma RBAC de Report (operador de caixa não acessa)', async () => {
+    const tenant = await registerTenant(app, 'reports-export-rbac');
+    const cashierToken = await loginAs(app, db, tenant.tenantId, 'operador_caixa');
+
+    const salesExport = await request(app.getHttpServer())
+      .get('/api/reports/exportar/vendas.csv')
+      .set('Authorization', `Bearer ${cashierToken}`);
+    expect(salesExport.status).toBe(403);
+
+    const financeExport = await request(app.getHttpServer())
+      .get('/api/reports/exportar/financeiro.csv')
+      .set('Authorization', `Bearer ${cashierToken}`);
+    expect(financeExport.status).toBe(403);
+  });
+
   it('financeiro lê relatórios, operador de caixa não acessa', async () => {
     const tenant = await registerTenant(app, 'reports-rbac');
     const financeiroToken = await loginAs(app, db, tenant.tenantId, 'financeiro');

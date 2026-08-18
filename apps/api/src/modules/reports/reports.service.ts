@@ -12,8 +12,34 @@ import type {
 } from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
-import { sales, saleItems, users, financeEntries, costCenters, stores, type SaleRow } from '../../database/schema/index';
+import {
+  sales,
+  saleItems,
+  users,
+  financeEntries,
+  costCenters,
+  stores,
+  customers,
+  suppliers,
+  salePayments,
+  fiscalDocuments,
+  type SaleRow,
+} from '../../database/schema/index';
 import { CommissionsService } from '../commissions/commissions.service';
+import { toCsv } from '../../common/utils/csv';
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  dinheiro: 'Dinheiro',
+  cartao_credito: 'Cartão de crédito',
+  cartao_debito: 'Cartão de débito',
+  pix: 'Pix',
+};
+
+const FISCAL_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendente',
+  authorized: 'Autorizada',
+  rejected: 'Rejeitada',
+};
 
 interface ResolvedRange {
   from: string;
@@ -251,6 +277,143 @@ export class ReportsService {
       resultadoCents: receitasCents - despesasCents,
       porCentroDeCusto,
     };
+  }
+
+  // Exportação para contabilidade — não é escrituração fiscal (SPED), é o
+  // dado bruto (vendas com forma de pagamento e status do documento fiscal,
+  // contas pagas/a pagar) num formato que qualquer contador consegue importar
+  // na ferramenta dele. Emitir SPED de verdade exige validação de quem
+  // entende a legislação tributária caso a caso; isso aqui é seguro de
+  // automatizar, aquilo não é.
+  async exportSalesCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
+    const range = resolveRange(query);
+    const salesInRange = await this.completedSalesInRange(tenantId, range);
+    if (salesInRange.length === 0) {
+      return toCsv(
+        ['Data', 'Hora', 'ID da venda', 'Loja', 'Vendedor', 'Cliente', 'Subtotal', 'Desconto', 'Total', 'Formas de pagamento', 'Status fiscal', 'Chave de acesso NFC-e'],
+        [],
+      );
+    }
+
+    const saleIds = salesInRange.map((sale) => sale.id);
+    const storeIds = [...new Set(salesInRange.map((sale) => sale.storeId))];
+    const sellerIds = [...new Set(salesInRange.map((sale) => sale.sellerId))];
+    const customerIds = [...new Set(salesInRange.map((sale) => sale.customerId).filter((id): id is string => !!id))];
+
+    const { storeRows, sellerRows, customerRows, paymentRows, fiscalRows } = await runWithTenant(this.db, tenantId, async (tx) => {
+      const [storeRows, sellerRows, customerRows, paymentRows, fiscalRows] = await Promise.all([
+        tx.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds)),
+        tx.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, sellerIds)),
+        customerIds.length > 0
+          ? tx.select({ id: customers.id, name: customers.name }).from(customers).where(inArray(customers.id, customerIds))
+          : Promise.resolve([]),
+        tx.select().from(salePayments).where(and(eq(salePayments.tenantId, tenantId), inArray(salePayments.saleId, saleIds))),
+        tx.select().from(fiscalDocuments).where(and(eq(fiscalDocuments.tenantId, tenantId), inArray(fiscalDocuments.saleId, saleIds))),
+      ]);
+      return { storeRows, sellerRows, customerRows, paymentRows, fiscalRows };
+    });
+
+    const storeNameById = new Map(storeRows.map((s) => [s.id, s.name]));
+    const sellerNameById = new Map(sellerRows.map((s) => [s.id, s.name]));
+    const customerNameById = new Map(customerRows.map((c) => [c.id, c.name]));
+    const paymentsBySale = new Map<string, typeof paymentRows>();
+    for (const payment of paymentRows) {
+      const list = paymentsBySale.get(payment.saleId) ?? [];
+      list.push(payment);
+      paymentsBySale.set(payment.saleId, list);
+    }
+    const fiscalBySale = new Map(fiscalRows.map((f) => [f.saleId, f]));
+
+    const rows = salesInRange
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((sale) => {
+        const paymentsLabel = (paymentsBySale.get(sale.id) ?? [])
+          .map((p) => `${PAYMENT_METHOD_LABELS[p.method] ?? p.method}: R$ ${(p.amountCents / 100).toFixed(2)}`)
+          .join(' + ');
+        const fiscal = fiscalBySale.get(sale.id);
+        return [
+          sale.createdAt.toISOString().slice(0, 10),
+          sale.createdAt.toISOString().slice(11, 19),
+          sale.id,
+          storeNameById.get(sale.storeId) ?? '',
+          sellerNameById.get(sale.sellerId) ?? '',
+          sale.customerId ? (customerNameById.get(sale.customerId) ?? '') : '',
+          (sale.subtotalCents / 100).toFixed(2),
+          (sale.discountCents / 100).toFixed(2),
+          (sale.totalCents / 100).toFixed(2),
+          paymentsLabel,
+          fiscal ? (FISCAL_STATUS_LABELS[fiscal.status] ?? fiscal.status) : 'Não emitida',
+          fiscal?.accessKey ?? '',
+        ];
+      });
+
+    return toCsv(
+      ['Data', 'Hora', 'ID da venda', 'Loja', 'Vendedor', 'Cliente', 'Subtotal', 'Desconto', 'Total', 'Formas de pagamento', 'Status fiscal', 'Chave de acesso NFC-e'],
+      rows,
+    );
+  }
+
+  async exportFinanceCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
+    const range = resolveRange(query);
+    // Aqui usa data de vencimento (due_date), não paidAt como o DRE — a
+    // exportação contábil precisa mostrar tudo que está lançado no período
+    // (pago, pendente ou cancelado), não só o que já liquidou.
+    const entries = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select()
+        .from(financeEntries)
+        .where(
+          and(
+            eq(financeEntries.tenantId, tenantId),
+            gte(financeEntries.dueDate, range.from),
+            lte(financeEntries.dueDate, range.to),
+          ),
+        ),
+    );
+
+    const header = ['Tipo', 'Descrição', 'Valor', 'Vencimento', 'Status', 'Pago em', 'Cliente/Fornecedor', 'Centro de custo'];
+    if (entries.length === 0) {
+      return toCsv(header, []);
+    }
+
+    const customerIds = [...new Set(entries.map((e) => e.customerId).filter((id): id is string => !!id))];
+    const supplierIds = [...new Set(entries.map((e) => e.supplierId).filter((id): id is string => !!id))];
+    const costCenterIds = [...new Set(entries.map((e) => e.costCenterId).filter((id): id is string => !!id))];
+
+    const { customerRows, supplierRows, costCenterRows } = await runWithTenant(this.db, tenantId, async (tx) => {
+      const [customerRows, supplierRows, costCenterRows] = await Promise.all([
+        customerIds.length > 0
+          ? tx.select({ id: customers.id, name: customers.name }).from(customers).where(inArray(customers.id, customerIds))
+          : Promise.resolve([]),
+        supplierIds.length > 0
+          ? tx.select({ id: suppliers.id, name: suppliers.name }).from(suppliers).where(inArray(suppliers.id, supplierIds))
+          : Promise.resolve([]),
+        costCenterIds.length > 0
+          ? tx.select({ id: costCenters.id, name: costCenters.name }).from(costCenters).where(inArray(costCenters.id, costCenterIds))
+          : Promise.resolve([]),
+      ]);
+      return { customerRows, supplierRows, costCenterRows };
+    });
+    const customerNameById = new Map(customerRows.map((c) => [c.id, c.name]));
+    const supplierNameById = new Map(supplierRows.map((s) => [s.id, s.name]));
+    const costCenterNameById = new Map(costCenterRows.map((c) => [c.id, c.name]));
+
+    const statusLabels: Record<string, string> = { pending: 'Pendente', paid: 'Paga', canceled: 'Cancelada' };
+
+    const rows = entries
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map((entry) => [
+        entry.type === 'receivable' ? 'Receita' : 'Despesa',
+        entry.description,
+        (entry.amountCents / 100).toFixed(2),
+        entry.dueDate,
+        statusLabels[entry.status] ?? entry.status,
+        entry.paidAt ? entry.paidAt.toISOString().slice(0, 10) : '',
+        entry.customerId ? (customerNameById.get(entry.customerId) ?? '') : entry.supplierId ? (supplierNameById.get(entry.supplierId) ?? '') : '',
+        entry.costCenterId ? (costCenterNameById.get(entry.costCenterId) ?? '') : '',
+      ]);
+
+    return toCsv(header, rows);
   }
 
   private async completedSalesInRange(tenantId: string, range: ResolvedRange): Promise<SaleRow[]> {
