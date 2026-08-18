@@ -3,12 +3,22 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [master]
 
 env:
   DATABASE_URL: postgres://pcaarb:pcaarb@localhost:5432/pcaarb
+  # Role restrita usada em runtime pela API (ver migration
+  # 0011_app_role_least_privilege) — credencial fixa de dev/CI, nunca usada
+  # em produção real (mesmo padrão do POSTGRES_PASSWORD do docker-compose).
+  APP_DATABASE_URL: postgres://pcaarb_app:pcaarb_app@localhost:5432/pcaarb
   JWT_ACCESS_SECRET: ci-access-secret-0000000000000000000000
   JWT_REFRESH_SECRET: ci-refresh-secret-0000000000000000000000
+  # Nunca usada de verdade: todo teste e2e que dispara envio de e-mail
+  # substitui EMAIL_PROVIDER por um fake (ver user-invites.e2e-spec.ts e
+  # permissoes-granulares.e2e-spec.ts) — só precisa passar na validação de
+  # env (RESEND_API_KEY não-vazia, RESEND_FROM_EMAIL formato de e-mail).
+  RESEND_API_KEY: ci-placeholder-nunca-usada
+  RESEND_FROM_EMAIL: ci@pcaarb.test
 
 jobs:
   build:

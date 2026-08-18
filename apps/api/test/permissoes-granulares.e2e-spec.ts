@@ -10,6 +10,7 @@ import { AppModule } from '../src/app.module';
 import type { Env } from '../src/config/env.validation';
 import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
+import { EMAIL_PROVIDER, type EmailProvider } from '../src/modules/email/email-provider.interface';
 import { registerTenant } from './helpers/register-tenant';
 
 // Este arquivo cria bem mais usuários que os outros specs (RBAC + escopo +
@@ -45,7 +46,17 @@ describe('Permissões granulares por usuário (e2e)', () => {
   let db: Database;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // Este arquivo testa override de permissão, não o envio de e-mail em si
+    // (isso já é coberto em user-invites.e2e-spec.ts) — sem isso, o teste de
+    // convite abaixo dependeria de uma conta Resend real configurada em
+    // RESEND_API_KEY só pra passar, o que quebraria em CI (sem esse segredo)
+    // e é frágil mesmo localmente (rate limit/expiração da chave de terceiro
+    // derrubando um teste que não tem nada a ver com e-mail).
+    const fakeEmailProvider: EmailProvider = { async sendInvite() {} };
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(EMAIL_PROVIDER)
+      .useValue(fakeEmailProvider)
+      .compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
     await app.init();
