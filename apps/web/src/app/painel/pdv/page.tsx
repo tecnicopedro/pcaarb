@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CloudOff, Gift, Plus, Receipt, ShoppingCart, Trash2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CashSession, CreateSaleInput, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale, Store } from '@pcaarb/shared';
@@ -46,6 +46,48 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 function formatSaleQueueTotal(sale: QueuedSale): string {
   const totalCents = sale.payload.payments.reduce((sum, p) => sum + p.amountCents, 0);
   return formatCentsToBRL(totalCents);
+}
+
+interface CartDraft {
+  cart: CartLine[];
+  selectedCustomerId: string;
+  discountReais: string;
+  pointsToRedeemInput: string;
+  payments: PaymentLine[];
+}
+
+function cartDraftKey(tenantId: string): string {
+  return `pcaarb_pdv_draft_${tenantId}`;
+}
+
+// Só o rascunho do carrinho (não confirmado ainda): um reload duro sem
+// internet no meio de uma venda não pode apagar o que o operador já separou.
+// Diferente da fila de vendas offline (offline-sale-queue.ts) — aqui a venda
+// nem foi "finalizada" ainda, é só o que está sendo montado na tela.
+function loadCartDraft(tenantId: string): CartDraft | null {
+  try {
+    const raw = localStorage.getItem(cartDraftKey(tenantId));
+    return raw ? (JSON.parse(raw) as CartDraft) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCartDraft(tenantId: string, draft: CartDraft): void {
+  try {
+    localStorage.setItem(cartDraftKey(tenantId), JSON.stringify(draft));
+  } catch {
+    // localStorage indisponível/cheio: perde só a conveniência do rascunho
+    // sobreviver a um reload, a venda em si não depende disso.
+  }
+}
+
+function clearCartDraft(tenantId: string): void {
+  try {
+    localStorage.removeItem(cartDraftKey(tenantId));
+  } catch {
+    // ver comentário em saveCartDraft
+  }
 }
 
 async function fetchCurrentSession(accessToken: string): Promise<CashSession | null> {
@@ -209,6 +251,39 @@ export default function PdvPage() {
   const [payments, setPayments] = useState<PaymentLine[]>([]);
   const [saleError, setSaleError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
+
+  // Restaura o carrinho em andamento (se o reload aconteceu no meio de uma
+  // venda) uma única vez, assim que o tenant é conhecido — só entra dado se
+  // ainda não existe nada na tela, pra não sobrescrever o que o operador já
+  // está montando caso o efeito rode de novo por algum motivo. Não dá pra
+  // usar lazy useState() aqui porque tenantId só existe depois que
+  // useCurrentUser() resolve (mesmo vindo do cache persistido, ainda leva um
+  // ciclo de render) — não está disponível no primeiro render pra semear o
+  // estado direto. O guard por ref garante que isto roda no máximo uma vez
+  // por montagem, então não há risco de loop de render em cascata.
+  const draftHydrated = useRef(false);
+  useEffect(() => {
+    if (!tenantId || draftHydrated.current) return;
+    draftHydrated.current = true;
+    const draft = loadCartDraft(tenantId);
+    if (draft && draft.cart.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratação única de um valor externo (localStorage) que só fica disponível depois do primeiro render, guardada por ref acima
+      setCart(draft.cart);
+      setSelectedCustomerId(draft.selectedCustomerId);
+      setDiscountReais(draft.discountReais);
+      setPointsToRedeemInput(draft.pointsToRedeemInput);
+      setPayments(draft.payments);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    if (cart.length === 0) {
+      clearCartDraft(tenantId);
+      return;
+    }
+    saveCartDraft(tenantId, { cart, selectedCustomerId, discountReais, pointsToRedeemInput, payments });
+  }, [tenantId, cart, selectedCustomerId, discountReais, pointsToRedeemInput, payments]);
 
   const subtotalCents = useMemo(
     () => cart.reduce((sum, line) => sum + line.priceCents * line.quantity, 0),

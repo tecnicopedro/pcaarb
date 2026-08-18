@@ -12,6 +12,9 @@ export default function PainelLayout({ children }: { children: React.ReactNode }
   const accessToken = useAccessToken();
 
   useEffect(() => {
+    // === null (não !accessToken): undefined é "ainda não sei" (primeira
+    // renderização de hidratação, ver use-access-token.ts) — só null é uma
+    // leitura de verdade do localStorage confirmando que não tem token.
     if (accessToken === null) {
       router.replace('/login');
     }
