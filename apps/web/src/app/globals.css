@@ -42,3 +42,29 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Cupom de venda (PDV): fica fora da tela normalmente (não pode usar
+   display:none — impediria a troca de visibility no print) e só aparece
+   sozinho na impressão, escondendo o resto da página (topbar, carrinho
+   etc.) sem precisar marcar cada componente individualmente. Padrão
+   clássico de "imprimir só este elemento". */
+#cupom-impressao {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #cupom-impressao,
+  #cupom-impressao * {
+    visibility: visible;
+  }
+  #cupom-impressao {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+}

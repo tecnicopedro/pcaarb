@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SaleReceipt } from '@/components/pdv/sale-receipt';
 
 interface CartLine {
   productId: string;
@@ -600,10 +601,21 @@ export default function PdvPage() {
                       </span>
                     )}
                   </div>
+                  <Button variant="secondary" className="ml-auto shrink-0" onClick={() => window.print()}>
+                    Imprimir cupom
+                  </Button>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+
+          {lastSale && (
+            <SaleReceipt
+              sale={lastSale}
+              companyName={meQuery.data?.tenant.companyName ?? ''}
+              storeName={storesQuery.data?.find((store) => store.id === lastSale.storeId)?.name}
+            />
+          )}
 
           <Card className="flex flex-col gap-4">
             <h2 className="text-sm font-medium">Nova venda</h2>
