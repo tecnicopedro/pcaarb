@@ -10,6 +10,7 @@ import {
   Gift,
   Package,
   Percent,
+  Receipt,
   ShoppingBag,
   ShoppingCart,
   Store,
@@ -24,6 +25,7 @@ import { useCurrentUser } from '@/lib/use-current-user';
 const SHORTCUTS = [
   { href: '/painel/pdv', label: 'PDV', description: 'Abrir caixa e vender', icon: ShoppingCart },
   { href: '/painel/produtos', label: 'Produtos', description: 'Cadastro, categorias e estoque', icon: Package },
+  { href: '/painel/vendas', label: 'Vendas', description: 'Histórico, reimpressão de cupom e reemissão de NFC-e', icon: Receipt },
   { href: '/painel/contagens', label: 'Inventário', description: 'Contagem de estoque e ajustes', icon: ClipboardList },
   { href: '/painel/cadastros', label: 'Cadastros', description: 'Clientes e fornecedores', icon: Contact },
   { href: '/painel/fidelidade', label: 'Fidelidade', description: 'Pontos, resgate e histórico do cliente', icon: Gift },
