@@ -48,8 +48,12 @@ export class UsersService {
     return user;
   }
 
+  // Exclui contas de serviço (chaves de API, ver api-keys.schema.ts) — essa
+  // listagem alimenta a tela de Usuários e seletores de vendedor, feitos
+  // pra gente de verdade; a chave de API tem sua própria tela em
+  // /painel/integracoes.
   async listByTenant(tenantId: string): Promise<UserRow[]> {
-    return this.db.select().from(users).where(eq(users.tenantId, tenantId));
+    return this.db.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.isServiceAccount, false)));
   }
 
   async listPendingInvites(tenantId: string): Promise<UserInviteRow[]> {

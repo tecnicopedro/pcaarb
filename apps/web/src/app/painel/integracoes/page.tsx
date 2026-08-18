@@ -2,25 +2,31 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, PackageSearch, Plug, RefreshCw, ShoppingBag } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, Key, PackageSearch, Plug, RefreshCw, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import type {
+  ApiKey,
+  CreatedApiKey,
   MarketplaceChannel,
   MarketplaceListingWithProduct,
   MarketplaceOrder,
   Product,
   PullMarketplaceOrdersResult,
+  Role,
 } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
 import { useCurrentUser } from '@/lib/use-current-user';
+import { ROLE_LABELS } from '@/lib/role-labels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRows } from '@/components/ui/skeleton';
+
+const API_KEY_ROLES: Role[] = ['owner', 'admin', 'financeiro', 'operador_caixa'];
 
 const LISTING_STATUS_BADGE: Record<'nao_sincronizado' | 'pending' | 'synced' | 'error', { label: string; variant: BadgeVariant }> = {
   nao_sincronizado: { label: 'Não sincronizado', variant: 'neutral' },
@@ -42,6 +48,11 @@ export default function IntegracoesPage() {
 
   const [newChannelName, setNewChannelName] = useState('');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyRole, setNewKeyRole] = useState<Role>('admin');
+  const [newKeyExpiresAt, setNewKeyExpiresAt] = useState('');
+  const [justCreatedKey, setJustCreatedKey] = useState<CreatedApiKey | null>(null);
 
   const channelsQuery = useQuery({
     queryKey: ['marketplace', 'channels'],
@@ -65,6 +76,12 @@ export default function IntegracoesPage() {
     queryKey: ['marketplace', 'orders', selectedChannelId],
     queryFn: () => apiFetch<MarketplaceOrder[]>(`/marketplace/channels/${selectedChannelId}/orders`, { accessToken: accessToken! }),
     enabled: !!accessToken && !!selectedChannelId,
+  });
+
+  const apiKeysQuery = useQuery({
+    queryKey: ['api-keys'],
+    queryFn: () => apiFetch<ApiKey[]>('/api-keys', { accessToken: accessToken! }),
+    enabled: !!accessToken,
   });
 
   function invalidateChannel() {
@@ -126,6 +143,50 @@ export default function IntegracoesPage() {
       toast.error(error instanceof ApiError ? error.message : 'Erro ao buscar pedidos');
     },
   });
+
+  const createApiKeyMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<CreatedApiKey>('/api-keys', {
+        method: 'POST',
+        accessToken: accessToken!,
+        body: {
+          name: newKeyName,
+          role: newKeyRole,
+          // Input type="date" só dá a data — expira no fim do dia escolhido.
+          expiresAt: newKeyExpiresAt ? new Date(`${newKeyExpiresAt}T23:59:59`).toISOString() : undefined,
+        },
+      }),
+    onSuccess: (created) => {
+      setJustCreatedKey(created);
+      setNewKeyName('');
+      setNewKeyRole('admin');
+      setNewKeyExpiresAt('');
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao criar chave de API');
+    },
+  });
+
+  const revokeApiKeyMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api-keys/${id}`, { method: 'DELETE', accessToken: accessToken! }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys'] });
+      toast.success('Chave de API revogada');
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao revogar chave de API');
+    },
+  });
+
+  async function copyRawKey(rawKey: string) {
+    try {
+      await navigator.clipboard.writeText(rawKey);
+      toast.success('Chave copiada');
+    } catch {
+      toast.error('Não foi possível copiar automaticamente — selecione e copie manualmente');
+    }
+  }
 
   if (!accessToken || meQuery.isLoading) {
     return null;
@@ -329,6 +390,138 @@ export default function IntegracoesPage() {
           </Card>
         </>
       )}
+
+      <div className="flex flex-col gap-4">
+        <div>
+          <h2 className="flex items-center gap-1.5 text-lg font-semibold tracking-tight">
+            <Key className="h-4 w-4" />
+            Chaves de API
+          </h2>
+          <p className="text-sm text-muted">
+            Gere uma chave pra um sistema externo consumir a API do PCAARB diretamente (documentação interativa em{' '}
+            <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-800">/api/docs</code>). A chave age com as
+            mesmas permissões do papel escolhido — as mesmas regras que valem pra um usuário logado. Use só em servidor —
+            nunca em código que roda no navegador do cliente final.
+          </p>
+        </div>
+
+        {justCreatedKey && (
+          <Card className="flex flex-col gap-2 border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-amber-800 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+              Guarde esta chave agora — ela não será exibida de novo.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 overflow-x-auto rounded-md border border-amber-300 bg-white px-3 py-2 text-xs dark:border-amber-800 dark:bg-zinc-950">
+                {justCreatedKey.rawKey}
+              </code>
+              <Button variant="secondary" onClick={() => copyRawKey(justCreatedKey.rawKey)}>
+                <Copy className="h-4 w-4" />
+                Copiar
+              </Button>
+            </div>
+            <button
+              type="button"
+              className="self-start text-xs text-muted hover:underline"
+              onClick={() => setJustCreatedKey(null)}
+            >
+              Já guardei, fechar
+            </button>
+          </Card>
+        )}
+
+        <Card className="flex flex-wrap items-end gap-2">
+          <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+            <label className="text-sm">Nome</label>
+            <Input placeholder="Ex.: Integração contábil" value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm">Papel</label>
+            <select
+              className="h-10 rounded-md border border-border bg-card px-3 text-sm"
+              value={newKeyRole}
+              onChange={(e) => setNewKeyRole(e.target.value as Role)}
+            >
+              {API_KEY_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {ROLE_LABELS[role]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm">Expira em (opcional)</label>
+            <input
+              type="date"
+              className="h-10 rounded-md border border-border bg-card px-3 text-sm"
+              value={newKeyExpiresAt}
+              onChange={(e) => setNewKeyExpiresAt(e.target.value)}
+            />
+          </div>
+          <Button loading={createApiKeyMutation.isPending} disabled={!newKeyName} onClick={() => createApiKeyMutation.mutate()}>
+            Gerar chave
+          </Button>
+        </Card>
+
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!apiKeysQuery.data ? (
+            <SkeletonRows rows={2} cols={4} />
+          ) : apiKeysQuery.data.length === 0 ? (
+            <EmptyState icon={Key} message="Nenhuma chave de API criada ainda." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Nome</th>
+                  <th className="px-4 py-2 font-medium">Chave</th>
+                  <th className="px-4 py-2 font-medium">Papel</th>
+                  <th className="px-4 py-2 font-medium">Último uso</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {apiKeysQuery.data.map((key) => {
+                  const expired = key.expiresAt && new Date(key.expiresAt) < new Date();
+                  return (
+                    <tr key={key.id} className="border-t border-border">
+                      <td className="px-4 py-2">{key.name}</td>
+                      <td className="px-4 py-2">
+                        <code className="text-xs text-muted">{key.keyPrefix}…</code>
+                      </td>
+                      <td className="px-4 py-2">{ROLE_LABELS[key.role]}</td>
+                      <td className="px-4 py-2 text-muted">
+                        {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString('pt-BR') : 'Nunca usada'}
+                      </td>
+                      <td className="px-4 py-2">
+                        {key.revokedAt ? (
+                          <Badge variant="neutral">Revogada</Badge>
+                        ) : expired ? (
+                          <Badge variant="warning">Expirada</Badge>
+                        ) : (
+                          <Badge variant="success">Ativa</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {!key.revokedAt && (
+                          <button
+                            type="button"
+                            className="text-xs text-red-600 hover:underline"
+                            disabled={revokeApiKeyMutation.isPending}
+                            onClick={() => revokeApiKeyMutation.mutate(key.id)}
+                          >
+                            Revogar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </>
   );
 }

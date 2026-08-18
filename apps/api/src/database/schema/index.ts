@@ -31,3 +31,4 @@ export * from './marketplace-channels.schema';
 export * from './marketplace-listings.schema';
 export * from './marketplace-orders.schema';
 export * from './marketplace-order-items.schema';
+export * from './api-keys.schema';

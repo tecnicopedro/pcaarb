@@ -33,6 +33,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
     BillingModule,
     StoresModule,
     MarketplaceModule,
+    ApiKeysModule,
   ],
   providers: [
     AbilityFactory,
