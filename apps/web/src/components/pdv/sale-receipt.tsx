@@ -14,8 +14,8 @@ interface SaleReceiptProps {
   storeName?: string;
 }
 
-// Elemento só existe pra ser impresso (ver #cupom-impressao em globals.css)
-// — nunca aparece na tela normal do PDV. Layout estreito (largura de
+// Elemento só existe pra ser impresso (ver .print-target em globals.css) —
+// nunca aparece na tela normal do PDV. Layout estreito (largura de
 // impressora térmica de recibo), fonte monoespaçada, sem nenhum componente
 // do design system (Card/Badge) de propósito: é um documento pra entregar
 // ao cliente, não uma tela do painel.
@@ -23,7 +23,7 @@ export function SaleReceipt({ sale, companyName, storeName }: SaleReceiptProps) 
   const createdAt = new Date(sale.createdAt);
 
   return (
-    <div id="cupom-impressao" className="w-[300px] p-2 font-mono text-xs text-black">
+    <div className="print-target w-[300px] p-2 font-mono text-xs text-black">
       <div className="text-center">
         <p className="font-bold">{companyName}</p>
         {storeName && <p>{storeName}</p>}

@@ -2,19 +2,21 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo, useState } from 'react';
-import { Package, Plus, ShoppingBag, Trash2 } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { ChevronDown, Package, Plus, Printer, ShoppingBag, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product, PurchaseOrder, Supplier } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
+import { useCurrentUser } from '@/lib/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRows } from '@/components/ui/skeleton';
+import { PurchaseOrderPrint } from '@/components/compras/purchase-order-print';
 
 interface OrderLine {
   productId: string;
@@ -26,6 +28,8 @@ interface OrderLine {
 export default function ComprasPage() {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
+  const meQuery = useCurrentUser();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const ordersQuery = useQuery({
     queryKey: ['purchase-orders'],
@@ -59,7 +63,11 @@ export default function ComprasPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const totalCents = useMemo(
-    () => lines.reduce((sum, line) => sum + parseBRLToCents(line.unitCostReais || '0') * line.quantity, 0),
+    () =>
+      lines.reduce(
+        (sum, line) => sum + parseBRLToCents(line.unitCostReais || '0') * line.quantity,
+        0,
+      ),
     [lines],
   );
 
@@ -119,7 +127,8 @@ export default function ComprasPage() {
   });
 
   const receiveMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/purchase-orders/${id}/receive`, { method: 'POST', accessToken: accessToken! }),
+    mutationFn: (id: string) =>
+      apiFetch(`/purchase-orders/${id}/receive`, { method: 'POST', accessToken: accessToken! }),
     onSuccess: () => {
       invalidateOrders();
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -131,7 +140,8 @@ export default function ComprasPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => apiFetch(`/purchase-orders/${id}/cancel`, { method: 'POST', accessToken: accessToken! }),
+    mutationFn: (id: string) =>
+      apiFetch(`/purchase-orders/${id}/cancel`, { method: 'POST', accessToken: accessToken! }),
     onSuccess: () => {
       invalidateOrders();
       toast.success('Pedido cancelado');
@@ -204,9 +214,18 @@ export default function ComprasPage() {
             </div>
             <div className="flex w-28 flex-col gap-1.5">
               <label className="text-sm">Custo unit. (R$)</label>
-              <Input placeholder="0,00" value={unitCostReais} onChange={(e) => setUnitCostReais(e.target.value)} />
+              <Input
+                placeholder="0,00"
+                value={unitCostReais}
+                onChange={(e) => setUnitCostReais(e.target.value)}
+              />
             </div>
-            <Button type="button" variant="secondary" onClick={addLine} disabled={!selectedProductId || !unitCostReais}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addLine}
+              disabled={!selectedProductId || !unitCostReais}
+            >
               <Plus className="h-4 w-4" />
               Adicionar
             </Button>
@@ -235,8 +254,12 @@ export default function ComprasPage() {
                   >
                     <td className="py-1.5">{line.name}</td>
                     <td className="py-1.5">{line.quantity}</td>
-                    <td className="py-1.5">{formatCentsToBRL(parseBRLToCents(line.unitCostReais))}</td>
-                    <td className="py-1.5">{formatCentsToBRL(parseBRLToCents(line.unitCostReais) * line.quantity)}</td>
+                    <td className="py-1.5">
+                      {formatCentsToBRL(parseBRLToCents(line.unitCostReais))}
+                    </td>
+                    <td className="py-1.5">
+                      {formatCentsToBRL(parseBRLToCents(line.unitCostReais) * line.quantity)}
+                    </td>
                     <td className="py-1.5">
                       <button
                         type="button"
@@ -252,7 +275,9 @@ export default function ComprasPage() {
               </AnimatePresence>
             </tbody>
           </table>
-          {lines.length === 0 && <EmptyState icon={Package} message="Nenhum item adicionado ainda." />}
+          {lines.length === 0 && (
+            <EmptyState icon={Package} message="Nenhum item adicionado ainda." />
+          )}
 
           <p className="self-end text-sm font-semibold">Total: {formatCentsToBRL(totalCents)}</p>
         </div>
@@ -291,45 +316,96 @@ export default function ComprasPage() {
                 </tr>
               </thead>
               <tbody>
-                {ordersQuery.data.map((order) => (
-                  <tr key={order.id} className="border-t border-border">
-                    <td className="px-4 py-2">{supplierNameById.get(order.supplierId) ?? '—'}</td>
-                    <td className="px-4 py-2">{order.items.length}</td>
-                    <td className="px-4 py-2">{formatCentsToBRL(order.totalCents)}</td>
-                    <td className="px-4 py-2">
-                      {order.status === 'received' ? (
-                        <Badge variant="success">Recebido</Badge>
-                      ) : order.status === 'canceled' ? (
-                        <Badge variant="neutral">Cancelado</Badge>
-                      ) : (
-                        <Badge variant="warning">Rascunho</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">{new Date(order.createdAt).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-4 py-2 text-right">
-                      {order.status === 'draft' && (
-                        <div className="flex justify-end gap-3">
-                          <button
-                            type="button"
-                            className="text-xs text-green-600 hover:underline"
-                            disabled={receiveMutation.isPending}
-                            onClick={() => receiveMutation.mutate(order.id)}
+                {ordersQuery.data.map((order) => {
+                  const isExpanded = expandedId === order.id;
+                  const supplier = suppliersQuery.data?.find((s) => s.id === order.supplierId);
+                  return (
+                    <Fragment key={order.id}>
+                      <tr
+                        className="cursor-pointer border-t border-border hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                        onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                      >
+                        <td className="px-4 py-2">
+                          {supplierNameById.get(order.supplierId) ?? '—'}
+                        </td>
+                        <td className="px-4 py-2">{order.items.length}</td>
+                        <td className="px-4 py-2">{formatCentsToBRL(order.totalCents)}</td>
+                        <td className="px-4 py-2">
+                          {order.status === 'received' ? (
+                            <Badge variant="success">Recebido</Badge>
+                          ) : order.status === 'canceled' ? (
+                            <Badge variant="neutral">Cancelado</Badge>
+                          ) : (
+                            <Badge variant="warning">Rascunho</Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {new Date(order.createdAt).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div
+                            className="flex items-center justify-end gap-3"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            Receber
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-muted hover:underline"
-                            disabled={cancelMutation.isPending}
-                            onClick={() => cancelMutation.mutate(order.id)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
+                            {order.status === 'draft' && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="text-xs text-green-600 hover:underline"
+                                  disabled={receiveMutation.isPending}
+                                  onClick={() => receiveMutation.mutate(order.id)}
+                                >
+                                  Receber
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-xs text-muted hover:underline"
+                                  disabled={cancelMutation.isPending}
+                                  onClick={() => cancelMutation.mutate(order.id)}
+                                >
+                                  Cancelar
+                                </button>
+                              </>
+                            )}
+                            <ChevronDown
+                              className={`h-4 w-4 text-muted transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="p-0">
+                            <AnimatePresence>
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="flex flex-col gap-3 border-t border-border bg-zinc-50 px-4 py-3 dark:bg-zinc-900/50"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm text-muted">
+                                    Pedido {order.id.slice(0, 8)}
+                                  </span>
+                                  <Button variant="secondary" onClick={() => window.print()}>
+                                    <Printer className="h-4 w-4" />
+                                    Imprimir pedido
+                                  </Button>
+                                </div>
+                                <PurchaseOrderPrint
+                                  order={order}
+                                  companyName={meQuery.data?.tenant.companyName ?? ''}
+                                  supplier={supplier}
+                                />
+                              </motion.div>
+                            </AnimatePresence>
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                  </tr>
-                ))}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           )}
