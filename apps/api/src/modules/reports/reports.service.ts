@@ -4,7 +4,11 @@ import type {
   AbcCurveItem,
   CommissionReport,
   DreSummary,
+  PricingSuggestionItem,
+  PricingSuggestionQuery,
   ProductRankingItem,
+  ReorderSuggestionItem,
+  ReorderSuggestionQuery,
   ReportPeriodQuery,
   SalesSummary,
   SellerRankingItem,
@@ -23,6 +27,7 @@ import {
   suppliers,
   salePayments,
   fiscalDocuments,
+  products,
   type SaleRow,
 } from '../../database/schema/index';
 import { CommissionsService } from '../commissions/commissions.service';
@@ -414,6 +419,95 @@ export class ReportsService {
       ]);
 
     return toCsv(header, rows);
+  }
+
+  // Previsão de demanda por média móvel simples (quantidade vendida no
+  // período / dias do período) — não é um modelo de série temporal com
+  // sazonalidade/tendência, é uma heurística honesta sobre o que o PDV já
+  // registra. Produto sem venda no período e com saldo positivo não entra
+  // (não há dado nenhum pra sugerir algo); saldo zerado sempre entra, mesmo
+  // sem venda recente, porque "está zerado" já é acionável por si.
+  async reorderSuggestions(tenantId: string, query: ReorderSuggestionQuery): Promise<ReorderSuggestionItem[]> {
+    const range = resolveRange(query);
+    const coverageDays = query.coverageDays ?? 14;
+    const alertDays = query.alertDays ?? 7;
+    const windowDays = Math.max(1, Math.round((range.toDate.getTime() - range.fromDate.getTime()) / (24 * 60 * 60 * 1000)) + 1);
+
+    const salesInRange = await this.completedSalesInRange(tenantId, range);
+    const quantityByProduct = new Map<string, number>();
+    if (salesInRange.length > 0) {
+      const saleIds = salesInRange.map((sale) => sale.id);
+      const items = await runWithTenant(this.db, tenantId, (tx) =>
+        tx.select().from(saleItems).where(and(eq(saleItems.tenantId, tenantId), inArray(saleItems.saleId, saleIds))),
+      );
+      for (const item of items) {
+        quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) ?? 0) + item.quantity);
+      }
+    }
+
+    const trackedProducts = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select({ id: products.id, name: products.name, stockQuantity: products.stockQuantity })
+        .from(products)
+        .where(and(eq(products.tenantId, tenantId), eq(products.active, true), eq(products.trackStock, true))),
+    );
+
+    const results = trackedProducts
+      .map((product) => {
+        const quantitySold = quantityByProduct.get(product.id) ?? 0;
+        const avgDailySales = quantitySold / windowDays;
+        const daysUntilStockout = avgDailySales > 0 ? product.stockQuantity / avgDailySales : null;
+        const suggestedReorderQty = avgDailySales > 0 ? Math.max(0, Math.ceil(avgDailySales * coverageDays) - product.stockQuantity) : 0;
+        const needsAttention = product.stockQuantity <= 0 || (daysUntilStockout !== null && daysUntilStockout <= alertDays);
+        return {
+          productId: product.id,
+          productName: product.name,
+          stockQuantity: product.stockQuantity,
+          avgDailySales: Math.round(avgDailySales * 100) / 100,
+          daysUntilStockout: daysUntilStockout !== null ? Math.round(daysUntilStockout * 10) / 10 : null,
+          suggestedReorderQty,
+          needsAttention,
+        };
+      })
+      .filter((item) => item.avgDailySales > 0 || item.stockQuantity <= 0);
+
+    return results.sort((a, b) => {
+      if (a.daysUntilStockout === null && b.daysUntilStockout === null) return 0;
+      if (a.daysUntilStockout === null) return 1;
+      if (b.daysUntilStockout === null) return -1;
+      return a.daysUntilStockout - b.daysUntilStockout;
+    });
+  }
+
+  // Sugestão de preço por margem-alvo — heurística de precificação (custo /
+  // (1 - margem)), não elasticidade de mercado ou concorrência. Só entra
+  // produto com custo cadastrado (sem custo não há como calcular margem).
+  async pricingSuggestions(tenantId: string, query: PricingSuggestionQuery): Promise<PricingSuggestionItem[]> {
+    const targetMarginPercent = query.targetMarginPercent ?? 30;
+
+    const rows = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select({ id: products.id, name: products.name, priceCents: products.priceCents, costPriceCents: products.costPriceCents })
+        .from(products)
+        .where(and(eq(products.tenantId, tenantId), eq(products.active, true), isNotNull(products.costPriceCents))),
+    );
+    const withCost = rows.filter((row): row is typeof row & { costPriceCents: number } => row.costPriceCents !== null);
+
+    const results = withCost.map((product) => {
+      const currentMarginPercent =
+        product.priceCents > 0 ? ((product.priceCents - product.costPriceCents) / product.priceCents) * 100 : product.costPriceCents > 0 ? -100 : 0;
+      return {
+        productId: product.id,
+        productName: product.name,
+        priceCents: product.priceCents,
+        costPriceCents: product.costPriceCents,
+        currentMarginPercent: Math.round(currentMarginPercent * 10) / 10,
+        suggestedPriceCents: Math.round(product.costPriceCents / (1 - targetMarginPercent / 100)),
+        belowCost: product.priceCents <= product.costPriceCents,
+      };
+    });
+
+    return results.sort((a, b) => a.currentMarginPercent - b.currentMarginPercent);
   }
 
   private async completedSalesInRange(tenantId: string, range: ResolvedRange): Promise<SaleRow[]> {

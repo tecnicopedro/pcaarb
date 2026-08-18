@@ -3,8 +3,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { BarChart3, Download, Landmark, Receipt, Store, Trophy, Wallet } from 'lucide-react';
-import type { AbcCurveItem, DreSummary, SalesSummary, SellerRankingItem, StoreRankingItem } from '@pcaarb/shared';
+import { AlertTriangle, BarChart3, Download, Landmark, PackageSearch, Receipt, Store, Tag, Trophy, Wallet } from 'lucide-react';
+import type {
+  AbcCurveItem,
+  DreSummary,
+  PricingSuggestionItem,
+  ReorderSuggestionItem,
+  SalesSummary,
+  SellerRankingItem,
+  StoreRankingItem,
+} from '@pcaarb/shared';
 import { apiFetch, apiDownload, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
@@ -34,6 +42,7 @@ export default function RelatoriosPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [exporting, setExporting] = useState<'vendas' | 'financeiro' | null>(null);
+  const [targetMarginPercent, setTargetMarginPercent] = useState('30');
   const period = buildPeriodQuery(from, to);
 
   async function handleExport(kind: 'vendas' | 'financeiro') {
@@ -76,6 +85,22 @@ export default function RelatoriosPage() {
     queryKey: ['reports', 'dre', from, to],
     queryFn: () => apiFetch<DreSummary>(`/reports/dre${period}`, { accessToken: accessToken! }),
     enabled: !!accessToken,
+  });
+
+  const reorderQuery = useQuery({
+    queryKey: ['reports', 'reposicao', from, to],
+    queryFn: () => apiFetch<ReorderSuggestionItem[]>(`/reports/reposicao${period}`, { accessToken: accessToken! }),
+    enabled: !!accessToken,
+  });
+
+  const marginNumber = Number(targetMarginPercent);
+  const pricingQuery = useQuery({
+    queryKey: ['reports', 'precificacao', marginNumber],
+    queryFn: () =>
+      apiFetch<PricingSuggestionItem[]>(`/reports/precificacao?targetMarginPercent=${marginNumber}`, {
+        accessToken: accessToken!,
+      }),
+    enabled: !!accessToken && Number.isFinite(marginNumber) && marginNumber >= 0 && marginNumber <= 95,
   });
 
   const summary = summaryQuery.data;
@@ -246,6 +271,122 @@ export default function RelatoriosPage() {
                     <td className="px-4 py-2">
                       <Badge variant={ABC_BADGE_VARIANT[item.class]}>{item.class}</Badge>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted">
+          <PackageSearch className="h-3.5 w-3.5" />
+          Sugestão de reposição de estoque
+        </h2>
+        <p className="text-xs text-muted">
+          Estimativa por média móvel simples (venda no período ÷ dias do período) — não é um modelo de previsão com
+          sazonalidade, é uma projeção linear sobre o que já foi vendido. Produtos sem histórico de venda e com
+          estoque saudável não aparecem aqui.
+        </p>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!reorderQuery.data ? (
+            <SkeletonRows rows={3} cols={5} />
+          ) : reorderQuery.data.length === 0 ? (
+            <EmptyState icon={PackageSearch} message="Nenhum produto precisa de atenção no momento." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Produto</th>
+                  <th className="px-4 py-2 font-medium">Estoque</th>
+                  <th className="px-4 py-2 font-medium">Vendas/dia (média)</th>
+                  <th className="px-4 py-2 font-medium">Previsão de esgotar</th>
+                  <th className="px-4 py-2 font-medium">Sugestão de compra</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reorderQuery.data.map((item) => (
+                  <tr key={item.productId} className="border-t border-border">
+                    <td className="px-4 py-2">{item.productName}</td>
+                    <td className="px-4 py-2">{item.stockQuantity}</td>
+                    <td className="px-4 py-2 text-muted">{item.avgDailySales.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-muted">
+                      {item.daysUntilStockout === null ? '—' : `${item.daysUntilStockout} dia(s)`}
+                    </td>
+                    <td className="px-4 py-2">{item.suggestedReorderQty > 0 ? item.suggestedReorderQty : '—'}</td>
+                    <td className="px-4 py-2">
+                      {item.needsAttention ? (
+                        <Badge variant="danger">
+                          <AlertTriangle className="mr-1 inline h-3 w-3" />
+                          Atenção
+                        </Badge>
+                      ) : (
+                        <Badge variant="success">OK</Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted">
+          <Tag className="h-3.5 w-3.5" />
+          Sugestão de precificação
+        </h2>
+        <p className="text-xs text-muted">
+          Preço sugerido pela margem-alvo informada (custo ÷ (1 − margem)) — heurística de margem, não considera
+          concorrência ou elasticidade de preço. Só entram produtos com custo cadastrado.
+        </p>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-muted">Margem-alvo</label>
+          <Input
+            type="number"
+            min={0}
+            max={95}
+            value={targetMarginPercent}
+            onChange={(e) => setTargetMarginPercent(e.target.value)}
+            className="w-24"
+          />
+          <span className="text-sm text-muted">%</span>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          {!pricingQuery.data ? (
+            <SkeletonRows rows={3} cols={5} />
+          ) : pricingQuery.data.length === 0 ? (
+            <EmptyState icon={Tag} message="Nenhum produto ativo com custo cadastrado." />
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Produto</th>
+                  <th className="px-4 py-2 font-medium">Preço atual</th>
+                  <th className="px-4 py-2 font-medium">Custo</th>
+                  <th className="px-4 py-2 font-medium">Margem atual</th>
+                  <th className="px-4 py-2 font-medium">Preço sugerido</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pricingQuery.data.map((item) => (
+                  <tr key={item.productId} className="border-t border-border">
+                    <td className="px-4 py-2">{item.productName}</td>
+                    <td className="px-4 py-2">{formatCentsToBRL(item.priceCents)}</td>
+                    <td className="px-4 py-2 text-muted">{formatCentsToBRL(item.costPriceCents)}</td>
+                    <td className="px-4 py-2">
+                      {item.belowCost ? (
+                        <Badge variant="danger">{item.currentMarginPercent.toFixed(1)}% (abaixo do custo)</Badge>
+                      ) : (
+                        <span className={item.currentMarginPercent < 15 ? 'text-amber-600' : ''}>
+                          {item.currentMarginPercent.toFixed(1)}%
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">{formatCentsToBRL(item.suggestedPriceCents)}</td>
                   </tr>
                 ))}
               </tbody>

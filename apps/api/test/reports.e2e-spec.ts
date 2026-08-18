@@ -26,6 +26,25 @@ async function createProduct(app: INestApplication, accessToken: string, priceCe
 }
 
 
+async function createTrackedProduct(
+  app: INestApplication,
+  accessToken: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const response = await request(app.getHttpServer())
+    .post('/api/products')
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ name: 'Produto rastreado', priceCents: 1000, ...overrides });
+  return response.body as { id: string; stockQuantity: number };
+}
+
+async function addStock(app: INestApplication, accessToken: string, productId: string, quantity: number) {
+  return request(app.getHttpServer())
+    .post(`/api/products/${productId}/stock-movements`)
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ type: 'entrada', quantity, reason: 'Compra inicial' });
+}
+
 async function sell(app: INestApplication, accessToken: string, productId: string, quantity: number, priceCents: number) {
   const totalCents = quantity * priceCents;
   return request(app.getHttpServer())
@@ -140,6 +159,86 @@ describe('Relatórios (e2e)', () => {
     expect(summaryB.body.totalSales).toBe(0);
   });
 
+  it('isola sugestão de reposição e de precificação entre tenants diferentes (RLS)', async () => {
+    const tenantA = await registerTenant(app, 'reports-bi-iso-a');
+    const tenantB = await registerTenant(app, 'reports-bi-iso-b');
+
+    // saldo zerado (default de createTrackedProduct, sem addStock) -> sempre aparece em reposição pra quem tem acesso
+    await createTrackedProduct(app, tenantA.accessToken, { name: 'Produto A zerado' });
+    await createTrackedProduct(app, tenantB.accessToken, { name: 'Produto B abaixo do custo', priceCents: 100, costPriceCents: 900 });
+
+    const reorderB = await request(app.getHttpServer())
+      .get('/api/reports/reposicao')
+      .set('Authorization', `Bearer ${tenantB.accessToken}`);
+    expect(reorderB.body.some((item: { productName: string }) => item.productName === 'Produto A zerado')).toBe(false);
+
+    const pricingA = await request(app.getHttpServer())
+      .get('/api/reports/precificacao')
+      .set('Authorization', `Bearer ${tenantA.accessToken}`);
+    expect(pricingA.body.some((item: { productName: string }) => item.productName === 'Produto B abaixo do custo')).toBe(false);
+  });
+
+  it('sugestão de reposição estima previsão por média móvel simples e filtra ruído', async () => {
+    const tenant = await registerTenant(app, 'reports-reposicao');
+    await openCashSession(app, tenant.accessToken);
+
+    const urgente = await createTrackedProduct(app, tenant.accessToken, { name: 'Urgente', priceCents: 1000 });
+    await addStock(app, tenant.accessToken, urgente.id, 35);
+    await sell(app, tenant.accessToken, urgente.id, 30, 1000); // consome 30 do estoque, vende 30 no período
+
+    const saudavel = await createTrackedProduct(app, tenant.accessToken, { name: 'Saudável', priceCents: 1000 });
+    await addStock(app, tenant.accessToken, saudavel.id, 1030);
+    await sell(app, tenant.accessToken, saudavel.id, 30, 1000);
+
+    const semDados = await createTrackedProduct(app, tenant.accessToken, { name: 'Sem dados, zerado' });
+    // sem entrada de estoque e sem venda — nasce com saldo zero
+
+    const nuncaVendido = await createTrackedProduct(app, tenant.accessToken, { name: 'Nunca vendido' });
+    await addStock(app, tenant.accessToken, nuncaVendido.id, 50); // saldo saudável, sem histórico de venda
+
+    const response = await request(app.getHttpServer())
+      .get('/api/reports/reposicao')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+
+    expect(response.status).toBe(200);
+    const byId = new Map(response.body.map((item: { productId: string }) => [item.productId, item]));
+
+    expect(byId.has(nuncaVendido.id)).toBe(false); // sem venda e com saldo positivo: sem dado pra sugerir nada
+
+    const urgenteItem = byId.get(urgente.id);
+    expect(urgenteItem).toMatchObject({ stockQuantity: 5, avgDailySales: 1, daysUntilStockout: 5, suggestedReorderQty: 9, needsAttention: true });
+
+    const saudavelItem = byId.get(saudavel.id);
+    expect(saudavelItem).toMatchObject({ stockQuantity: 1000, avgDailySales: 1, daysUntilStockout: 1000, needsAttention: false });
+
+    const semDadosItem = byId.get(semDados.id);
+    expect(semDadosItem).toMatchObject({ stockQuantity: 0, avgDailySales: 0, daysUntilStockout: null, suggestedReorderQty: 0, needsAttention: true });
+
+    // mais urgente primeiro
+    expect(response.body[0].productId).toBe(urgente.id);
+  });
+
+  it('sugestão de precificação calcula margem e preço sugerido por margem-alvo, ignora produto sem custo', async () => {
+    const tenant = await registerTenant(app, 'reports-precificacao');
+    const comMargem = await createTrackedProduct(app, tenant.accessToken, { name: 'Com margem', priceCents: 1000, costPriceCents: 700 });
+    const abaixoDoCusto = await createTrackedProduct(app, tenant.accessToken, { name: 'Abaixo do custo', priceCents: 500, costPriceCents: 600 });
+    const semCusto = await createTrackedProduct(app, tenant.accessToken, { name: 'Sem custo', priceCents: 800 });
+
+    const response = await request(app.getHttpServer())
+      .get('/api/reports/precificacao')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+
+    expect(response.status).toBe(200);
+    const byId = new Map(response.body.map((item: { productId: string }) => [item.productId, item]));
+
+    expect(byId.has(semCusto.id)).toBe(false);
+    expect(byId.get(comMargem.id)).toMatchObject({ currentMarginPercent: 30, suggestedPriceCents: 1000, belowCost: false });
+    expect(byId.get(abaixoDoCusto.id)).toMatchObject({ currentMarginPercent: -20, suggestedPriceCents: 857, belowCost: true });
+
+    // pior margem primeiro
+    expect(response.body[0].productId).toBe(abaixoDoCusto.id);
+  });
+
   it('exporta vendas em CSV com formas de pagamento e status fiscal', async () => {
     const tenant = await registerTenant(app, 'reports-export-vendas');
     const product = await createProduct(app, tenant.accessToken, 1500, 'Produto Exportado');
@@ -212,6 +311,16 @@ describe('Relatórios (e2e)', () => {
       .get('/api/reports/exportar/financeiro.csv')
       .set('Authorization', `Bearer ${cashierToken}`);
     expect(financeExport.status).toBe(403);
+
+    const reorder = await request(app.getHttpServer())
+      .get('/api/reports/reposicao')
+      .set('Authorization', `Bearer ${cashierToken}`);
+    expect(reorder.status).toBe(403);
+
+    const pricing = await request(app.getHttpServer())
+      .get('/api/reports/precificacao')
+      .set('Authorization', `Bearer ${cashierToken}`);
+    expect(pricing.status).toBe(403);
   });
 
   it('financeiro lê relatórios, operador de caixa não acessa', async () => {

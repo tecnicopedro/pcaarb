@@ -1,7 +1,15 @@
 import { Controller, Get, Query, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { reportPeriodQuerySchema, type JwtPayload, type ReportPeriodQuery } from '@pcaarb/shared';
+import {
+  reportPeriodQuerySchema,
+  reorderSuggestionQuerySchema,
+  pricingSuggestionQuerySchema,
+  type JwtPayload,
+  type ReportPeriodQuery,
+  type ReorderSuggestionQuery,
+  type PricingSuggestionQuery,
+} from '@pcaarb/shared';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CheckAbilities } from '../../common/decorators/check-abilities.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -79,6 +87,24 @@ export class ReportsController {
   @Get('dre')
   dre(@CurrentUser() user: JwtPayload, @Query(new ZodValidationPipe(reportPeriodQuerySchema)) query: ReportPeriodQuery) {
     return this.reportsService.dre(user.tenantId, query);
+  }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('reposicao')
+  reorderSuggestions(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(reorderSuggestionQuerySchema)) query: ReorderSuggestionQuery,
+  ) {
+    return this.reportsService.reorderSuggestions(user.tenantId, query);
+  }
+
+  @CheckAbilities({ action: 'read', subject: 'Report' })
+  @Get('precificacao')
+  pricingSuggestions(
+    @CurrentUser() user: JwtPayload,
+    @Query(new ZodValidationPipe(pricingSuggestionQuerySchema)) query: PricingSuggestionQuery,
+  ) {
+    return this.reportsService.pricingSuggestions(user.tenantId, query);
   }
 
   @CheckAbilities({ action: 'read', subject: 'Report' })

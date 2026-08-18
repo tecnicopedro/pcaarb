@@ -94,3 +94,43 @@ export const storeRankingItemSchema = z.object({
 });
 
 export type StoreRankingItem = z.infer<typeof storeRankingItemSchema>;
+
+// Previsão de demanda por média móvel simples sobre o período informado —
+// não é um modelo de série temporal (sem sazonalidade/tendência). Honesto
+// pro estágio do produto: melhor uma heurística clara do que fingir "IA".
+export const reorderSuggestionQuerySchema = reportPeriodQuerySchema.extend({
+  coverageDays: z.coerce.number().int().positive().max(365).optional(),
+  alertDays: z.coerce.number().int().positive().max(365).optional(),
+});
+
+export type ReorderSuggestionQuery = z.infer<typeof reorderSuggestionQuerySchema>;
+
+export const reorderSuggestionItemSchema = z.object({
+  productId: z.string().uuid(),
+  productName: z.string(),
+  stockQuantity: z.number().int(),
+  avgDailySales: z.number(),
+  daysUntilStockout: z.number().nullable(),
+  suggestedReorderQty: z.number().int(),
+  needsAttention: z.boolean(),
+});
+
+export type ReorderSuggestionItem = z.infer<typeof reorderSuggestionItemSchema>;
+
+export const pricingSuggestionQuerySchema = z.object({
+  targetMarginPercent: z.coerce.number().min(0).max(95).optional(),
+});
+
+export type PricingSuggestionQuery = z.infer<typeof pricingSuggestionQuerySchema>;
+
+export const pricingSuggestionItemSchema = z.object({
+  productId: z.string().uuid(),
+  productName: z.string(),
+  priceCents: z.number().int(),
+  costPriceCents: z.number().int(),
+  currentMarginPercent: z.number(),
+  suggestedPriceCents: z.number().int(),
+  belowCost: z.boolean(),
+});
+
+export type PricingSuggestionItem = z.infer<typeof pricingSuggestionItemSchema>;
