@@ -26,6 +26,7 @@ export const permissionSubjectSchema = z.enum([
   'Report',
   'User',
   'Store',
+  'Integration',
 ]);
 
 export type PermissionSubject = z.infer<typeof permissionSubjectSchema>;

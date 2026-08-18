@@ -32,6 +32,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { StoresModule } from './modules/stores/stores.module';
+import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { StoresModule } from './modules/stores/stores.module';
     CommissionsModule,
     BillingModule,
     StoresModule,
+    MarketplaceModule,
   ],
   providers: [
     AbilityFactory,

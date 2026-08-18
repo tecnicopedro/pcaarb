@@ -12,6 +12,7 @@ import {
   LogOut,
   Package,
   Percent,
+  Plug,
   ShoppingBag,
   ShoppingCart,
   Store,
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: '/painel/relatorios', label: 'Relatórios', icon: BarChart3 },
   { href: '/painel/comissoes', label: 'Comissões', icon: Percent },
   { href: '/painel/lojas', label: 'Lojas', icon: Store },
+  { href: '/painel/integracoes', label: 'Integrações', icon: Plug },
   { href: '/painel/usuarios', label: 'Usuários', icon: Users },
   { href: '/painel/assinatura', label: 'Assinatura', icon: CreditCard },
 ];

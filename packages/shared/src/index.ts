@@ -21,3 +21,4 @@ export * from './schemas/loyalty.js';
 export * from './schemas/commission.js';
 export * from './schemas/billing.js';
 export * from './schemas/store.js';
+export * from './schemas/marketplace.js';

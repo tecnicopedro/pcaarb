@@ -135,6 +135,17 @@ describe('AbilityFactory', () => {
     expect(operadorCaixa.can('create', 'Store')).toBe(false);
   });
 
+  it('admin gerencia integrações de marketplace; financeiro e operador de caixa não acessam (configuração de canal externo)', () => {
+    const admin = factory.buildAbility('admin');
+    expect(admin.can('manage', 'Integration')).toBe(true);
+
+    const financeiro = factory.buildAbility('financeiro');
+    expect(financeiro.can('read', 'Integration')).toBe(false);
+
+    const operadorCaixa = factory.buildAbility('operador_caixa');
+    expect(operadorCaixa.can('read', 'Integration')).toBe(false);
+  });
+
   describe('overrides por usuário', () => {
     it('override "allow" concede acesso além do papel base', () => {
       const semOverride = factory.buildAbility('operador_caixa');

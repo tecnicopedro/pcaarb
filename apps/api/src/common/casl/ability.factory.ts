@@ -33,7 +33,8 @@ export type Subject =
   | 'Tenant'
   | 'User'
   | 'UserAccess'
-  | 'Store';
+  | 'Store'
+  | 'Integration';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 
@@ -105,6 +106,7 @@ export class AbilityFactory {
           'User',
           'UserAccess',
           'Store',
+          'Integration',
         ]);
         break;
       case 'financeiro':

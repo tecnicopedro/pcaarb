@@ -27,3 +27,7 @@ export * from './seller-commission-rates.schema';
 export * from './subscriptions.schema';
 export * from './subscription-invoices.schema';
 export * from './stores.schema';
+export * from './marketplace-channels.schema';
+export * from './marketplace-listings.schema';
+export * from './marketplace-orders.schema';
+export * from './marketplace-order-items.schema';
