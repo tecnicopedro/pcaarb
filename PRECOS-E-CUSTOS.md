@@ -1,6 +1,6 @@
-# PCAARB — Catálogo de Preços e Custos (rascunho)
+# PCAARB — Catálogo de Preços e Custos
 
-> **Importante:** os números abaixo são estimativas de mercado e de fornecedores públicos, para dar um ponto de partida de planejamento. Antes de precificar de verdade, valide os custos variáveis (fiscal, gateway) diretamente com os fornecedores e teste a faixa de preço com early adopters reais. Este documento deve ser revisado a cada fase do roadmap.
+> **Status: preço da assinatura FECHADO e implementado** (`packages/shared/src/schemas/billing.ts`, `SUBSCRIPTION_PLAN_CATALOG`) — não é mais rascunho. Os custos variáveis (fiscal, gateway) continuam estimativa de mercado até validar com os fornecedores de verdade; o preço em si será ajustado se as primeiras conversas reais com lojista mostrarem que está errado, mas é o número em produção agora. Este documento deve ser revisado a cada fase do roadmap.
 
 ## 1. Estrutura de custos
 
@@ -34,14 +34,20 @@
 | 100 – 500 lojas | R$ 1.200 – 3.000 | Ponto onde vale reavaliar reservas/planos anuais e considerar mover peças críticas (ex.: banco) para infraestrutura dedicada |
 | 500+ lojas | Avaliar migração para AWS/GCP com Terraform | Ponto de virada mencionado em docs/02 |
 
-## 2. Modelo de precificação sugerido (assinatura mensal por loja)
+## 2. Modelo de precificação (assinatura mensal por loja) — implementado
 
-| Plano | Público | O que inclui | Preço sugerido (mensal) |
+| Plano | Público | O que inclui | Preço |
 |---|---|---|---|
-| **Starter** | Loja única, 1 caixa | Cadastros, PDV, estoque básico, financeiro básico, 1 usuário admin + 1 operador | R$ 89 – 129 |
-| **Profissional** | Loja única ou pequena rede, múltiplos caixas | Tudo do Starter + compras, estoque avançado, conciliação, relatórios/BI básico, usuários ilimitados | R$ 199 – 299 |
-| **Multi-loja** | Redes/franquias | Tudo do Profissional + visão consolidada multi-loja, CRM/fidelidade | R$ 299 base + R$ 79 – 129 por loja adicional |
-| **Enterprise** | Operações grandes, precisa de API/white-label | Tudo + API pública, SSO, suporte dedicado, SLA | Sob consulta |
+| **Starter** | Loja única, 1 caixa | Cadastros, PDV, estoque básico, financeiro básico, 1 usuário admin + 1 operador | **R$ 119/mês** |
+| **Profissional** | Loja única ou pequena rede, múltiplos caixas | Tudo do Starter + compras, inventário, centro de custo/DRE, relatórios/BI, **fidelidade**, **comissão de vendedores**, usuários ilimitados, permissões granulares | **R$ 249/mês** |
+| **Multi-loja** | Redes/franquias | Tudo do Profissional + visão consolidada multi-loja (módulo ainda não construído — ver Fase 3 do roadmap) | **R$ 349/mês** base + **R$ 99**/loja adicional |
+| **Enterprise** | Operações grandes, precisa de API/white-label | Tudo + API pública, SSO, suporte dedicado, SLA | Sob consulta (não assinável via checkout self-service) |
+
+Trial de 14 dias em qualquer plano, sem cartão de crédito. Cancelamento
+imediato, sem multa, a qualquer momento (`POST /billing/cancel`). Fatura
+recorrente cobrada via gateway configurado (`PAYMENT_PROVIDER`, hoje o
+mesmo mock de sandbox do PDV — troca pro Pagar.me real quando a conta do
+lojista existir, ver docs/03).
 
 **Add-ons cobrados à parte:**
 - Notas fiscais emitidas: repassar o custo do provedor fiscal com uma margem pequena (ex.: custo R$ 0,15 → cobrar R$ 0,25 – 0,35 por nota, ou incluir uma franquia mensal no plano e cobrar excedente).

@@ -1,8 +1,11 @@
 import { ForbiddenException, Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+// Reflector precisa ser um import de valor — mesmo motivo do JwtAuthGuard.
+import { Reflector } from '@nestjs/core';
 import { eq } from 'drizzle-orm';
 import type { JwtPayload } from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { tenants } from '../../database/schema/index';
+import { BYPASS_TENANT_STATUS_KEY } from '../decorators/bypass-tenant-status.decorator';
 
 /**
  * Bloqueia o acesso de tenants inadimplentes/expirados na borda da aplicação,
@@ -10,12 +13,23 @@ import { tenants } from '../../database/schema/index';
  */
 @Injectable()
 export class TenantStatusGuard implements CanActivate {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ user?: JwtPayload }>();
     const user = request.user;
     if (!user) {
+      return true;
+    }
+
+    const bypass = this.reflector.getAllAndOverride<boolean>(BYPASS_TENANT_STATUS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (bypass) {
       return true;
     }
 

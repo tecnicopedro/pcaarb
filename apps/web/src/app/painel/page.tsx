@@ -2,7 +2,19 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { BarChart3, ClipboardList, Contact, Gift, Package, Percent, ShoppingBag, ShoppingCart, Users, Wallet } from 'lucide-react';
+import {
+  BarChart3,
+  ClipboardList,
+  Contact,
+  CreditCard,
+  Gift,
+  Package,
+  Percent,
+  ShoppingBag,
+  ShoppingCart,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,6 +31,7 @@ const SHORTCUTS = [
   { href: '/painel/relatorios', label: 'Relatórios', description: 'Curva ABC, ticket médio e ranking', icon: BarChart3 },
   { href: '/painel/comissoes', label: 'Comissões', description: 'Taxa de comissão e relatório por vendedor', icon: Percent },
   { href: '/painel/usuarios', label: 'Usuários', description: 'Convidar e gerenciar papéis', icon: Users },
+  { href: '/painel/assinatura', label: 'Assinatura', description: 'Plano, fatura e forma de pagamento', icon: CreditCard },
 ];
 
 function daysUntil(dateIso: string): number {
@@ -44,8 +57,11 @@ export default function PainelPage() {
               </Badge>
             )}
             {me.tenant.status === 'active' && <Badge variant="success">Assinatura ativa</Badge>}
+            {me.tenant.status === 'past_due' && (
+              <Badge variant="warning">Pagamento pendente — regularize em Assinatura</Badge>
+            )}
             {(me.tenant.status === 'blocked' || me.tenant.status === 'canceled') && (
-              <Badge variant="danger">Acesso bloqueado</Badge>
+              <Badge variant="danger">Acesso bloqueado — regularize em Assinatura</Badge>
             )}
           </div>
         ) : (

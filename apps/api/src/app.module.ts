@@ -30,6 +30,7 @@ import { StockCountsModule } from './modules/stock-counts/stock-counts.module';
 import { PermissionOverridesModule } from './modules/permission-overrides/permission-overrides.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
     PermissionOverridesModule,
     LoyaltyModule,
     CommissionsModule,
+    BillingModule,
   ],
   providers: [
     AbilityFactory,

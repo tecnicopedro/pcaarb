@@ -15,9 +15,14 @@ export default function Home() {
           Venda, controle estoque e financeiro em um só lugar. Comece a operar no mesmo dia.
         </p>
       </div>
-      <div className="flex gap-4">
+      <div className="flex flex-wrap justify-center gap-4">
         <Link href="/registrar">
           <Button>Começar grátis</Button>
+        </Link>
+        <Link href="/precos">
+          <Button className="bg-transparent text-zinc-900 ring-1 ring-zinc-300 hover:bg-zinc-100 dark:text-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-900">
+            Ver preços
+          </Button>
         </Link>
         <Link href="/login">
           <Button className="bg-transparent text-zinc-900 ring-1 ring-zinc-300 hover:bg-zinc-100 dark:text-zinc-50 dark:ring-zinc-700 dark:hover:bg-zinc-900">

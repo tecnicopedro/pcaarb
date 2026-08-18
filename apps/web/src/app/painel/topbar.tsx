@@ -6,6 +6,7 @@ import {
   BarChart3,
   ClipboardList,
   Contact,
+  CreditCard,
   Gift,
   LayoutDashboard,
   LogOut,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/painel/relatorios', label: 'Relatórios', icon: BarChart3 },
   { href: '/painel/comissoes', label: 'Comissões', icon: Percent },
   { href: '/painel/usuarios', label: 'Usuários', icon: Users },
+  { href: '/painel/assinatura', label: 'Assinatura', icon: CreditCard },
 ];
 
 export function Topbar() {
