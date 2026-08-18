@@ -55,24 +55,17 @@ export class BillingService {
 
   // Serve três casos com um endpoint só: primeira assinatura, reativação
   // (estava cancelada ou bloqueada por inadimplência) e troca de plano.
-  // Só os dois primeiros cobram na hora — trocar de plano com assinatura já
-  // ativa não gera cobrança imediata (evita cobrar duas vezes no mesmo dia);
-  // o novo preço vale a partir do próximo ciclo.
+  // Todos cobram na hora e reiniciam o ciclo de 30 dias a partir de agora —
+  // achado em revisão de segurança (2026-08-17): uma troca de plano sem
+  // cobrança imediata permitia assinar Multi-loja, criar lojas extras, e
+  // trocar de volta pro Starter antes da renovação, ficando com acesso a
+  // todas as lojas sem nunca pagar por elas de fato. Trocar de plano sem
+  // cobrar de novo exigiria proração de verdade — fora do escopo do MVP de
+  // billing; cobrar o valor cheio do novo plano na hora é mais simples e
+  // fecha o buraco.
   async subscribe(tenantId: string, input: SubscribeInput): Promise<SubscriptionRow> {
     const existing = await this.getSubscription(tenantId);
     const priceCents = SUBSCRIPTION_PLAN_CATALOG[input.plan].priceCents;
-
-    if (existing && existing.status === 'active') {
-      const [updated] = await this.db
-        .update(subscriptions)
-        .set({ plan: input.plan, priceCents, updatedAt: new Date() })
-        .where(eq(subscriptions.tenantId, tenantId))
-        .returning();
-      if (!updated) {
-        throw new Error('Falha ao trocar de plano');
-      }
-      return updated;
-    }
 
     const charge = await this.paymentProvider.charge({
       tenantId,

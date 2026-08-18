@@ -186,7 +186,9 @@ export default function AssinaturaPage() {
             })}
           </div>
           <p className="text-xs text-muted">
-            Precisa de API pública, SSO ou suporte dedicado? O plano Enterprise é sob consulta — fale com a gente.
+            {subscription && subscription.status !== 'canceled'
+              ? 'Trocar de plano cobra o valor cheio do novo plano na hora e reinicia o ciclo de 30 dias a partir de hoje.'
+              : 'Precisa de API pública, SSO ou suporte dedicado? O plano Enterprise é sob consulta — fale com a gente.'}
           </p>
         </div>
       )}

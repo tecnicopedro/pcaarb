@@ -208,6 +208,35 @@ describe('Lojas / multi-loja (e2e)', () => {
     expect(byFirstStore.revenueCents).toBe(1000);
   });
 
+  it('downgrade bloqueia caixa em loja extra na hora de usar, não só na hora de criar (fecha o buraco de upgrade->criar loja->downgrade de graça)', async () => {
+    const tenant = await registerTenant(app, 'lojas-downgrade');
+    await subscribeToPlan(app, tenant.accessToken, 'multi_loja');
+    const secondStore = await request(app.getHttpServer())
+      .post('/api/stores')
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ name: 'Filial Temporária' });
+    const secondStoreId = secondStore.body.id as string;
+
+    // Volta pro Starter — a loja extra continua existindo (não é apagada),
+    // mas não pode mais ser usada pra abrir caixa.
+    await subscribeToPlan(app, tenant.accessToken, 'starter');
+
+    const openOnExtraStore = await request(app.getHttpServer())
+      .post('/api/cash-sessions')
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ storeId: secondStoreId, openingAmountCents: 0 });
+    expect(openOnExtraStore.status).toBe(403);
+    expect(openOnExtraStore.body.message).toMatch(/multi-loja|plano atual/i);
+
+    const list = await request(app.getHttpServer()).get('/api/stores').set('Authorization', `Bearer ${tenant.accessToken}`);
+    const firstStoreId = (list.body as Array<{ id: string }>).find((store) => store.id !== secondStoreId)!.id;
+    const openOnDefaultStore = await request(app.getHttpServer())
+      .post('/api/cash-sessions')
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ storeId: firstStoreId, openingAmountCents: 0 });
+    expect(openOnDefaultStore.status).toBe(201); // a loja original (padrão) nunca é bloqueada, em nenhum plano
+  });
+
   it('isola lojas entre tenants diferentes (RLS)', async () => {
     const tenantA = await registerTenant(app, 'lojas-iso-a');
     const tenantB = await registerTenant(app, 'lojas-iso-b');

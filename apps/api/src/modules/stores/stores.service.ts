@@ -30,14 +30,10 @@ export class StoresService {
   async create(tenantId: string, input: CreateStoreInput): Promise<StoreRow> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const existing = await tx.select({ id: stores.id }).from(stores).where(eq(stores.tenantId, tenantId));
-      if (existing.length > 0) {
-        const subscription = await this.billingService.getSubscription(tenantId);
-        const allowed = subscription?.status === 'active' && MULTI_STORE_PLANS.has(subscription.plan);
-        if (!allowed) {
-          throw new ForbiddenException(
-            'Operar mais de uma loja exige o plano Multi-loja. Assine ou faça upgrade em /painel/assinatura.',
-          );
-        }
+      if (existing.length > 0 && !(await this.hasMultiStoreAccess(tenantId))) {
+        throw new ForbiddenException(
+          'Operar mais de uma loja exige o plano Multi-loja. Assine ou faça upgrade em /painel/assinatura.',
+        );
       }
 
       const [store] = await tx.insert(stores).values({ tenantId, name: input.name }).returning();
@@ -46,6 +42,48 @@ export class StoresService {
       }
       return store;
     });
+  }
+
+  // Reavalia o plano a cada USO, não só na criação — achado em revisão de
+  // segurança (2026-08-17): sem isso, assinar Multi-loja, criar lojas extras
+  // e depois voltar pro Starter deixava as lojas extras utilizáveis pra
+  // sempre (a checagem de create() só rodava uma vez). A loja mais antiga do
+  // tenant (a padrão, criada no registro) nunca é bloqueada — todo tenant
+  // precisa conseguir operar pelo menos uma loja, em qualquer plano.
+  async assertUsable(tenantId: string, storeId: string): Promise<StoreRow> {
+    return runWithTenant(this.db, tenantId, async (tx) => {
+      const [store] = await tx
+        .select()
+        .from(stores)
+        .where(and(eq(stores.id, storeId), eq(stores.tenantId, tenantId)))
+        .limit(1);
+      if (!store) {
+        throw new NotFoundException('Loja não encontrada');
+      }
+      if (!store.active) {
+        throw new BadRequestException('Loja está inativa');
+      }
+
+      const [defaultStore] = await tx
+        .select({ id: stores.id })
+        .from(stores)
+        .where(eq(stores.tenantId, tenantId))
+        .orderBy(asc(stores.createdAt))
+        .limit(1);
+      const isDefaultStore = defaultStore?.id === store.id;
+      if (!isDefaultStore && !(await this.hasMultiStoreAccess(tenantId))) {
+        throw new ForbiddenException(
+          'Esta loja não está mais disponível — o plano atual só cobre a loja principal. Faça upgrade em /painel/assinatura.',
+        );
+      }
+
+      return store;
+    });
+  }
+
+  private async hasMultiStoreAccess(tenantId: string): Promise<boolean> {
+    const subscription = await this.billingService.getSubscription(tenantId);
+    return subscription?.status === 'active' && MULTI_STORE_PLANS.has(subscription.plan);
   }
 
   async update(tenantId: string, storeId: string, input: UpdateStoreInput): Promise<StoreRow> {

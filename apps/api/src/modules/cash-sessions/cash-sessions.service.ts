@@ -6,14 +6,17 @@ import { runWithTenant } from '../../database/tenant-context';
 import {
   cashSessions,
   cashMovements,
-  stores,
   type CashSessionRow,
   type CashMovementRow,
 } from '../../database/schema/index';
+import { StoresService } from '../stores/stores.service';
 
 @Injectable()
 export class CashSessionsService {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: Database,
+    private readonly storesService: StoresService,
+  ) {}
 
   async findByIdOrThrow(tenantId: string, id: string): Promise<CashSessionRow> {
     const session = await runWithTenant(this.db, tenantId, async (tx) => {
@@ -54,19 +57,11 @@ export class CashSessionsService {
       throw new ConflictException('Você já tem um caixa aberto. Feche-o antes de abrir outro.');
     }
 
-    return runWithTenant(this.db, tenantId, async (tx) => {
-      const [store] = await tx
-        .select({ id: stores.id, active: stores.active })
-        .from(stores)
-        .where(and(eq(stores.id, input.storeId), eq(stores.tenantId, tenantId)))
-        .limit(1);
-      if (!store) {
-        throw new NotFoundException('Loja não encontrada');
-      }
-      if (!store.active) {
-        throw new BadRequestException('Loja está inativa');
-      }
+    // Revalida a loja (existe, ativa, e coberta pelo plano atual) a cada
+    // abertura de caixa — não só que ela exista, ver StoresService.assertUsable.
+    await this.storesService.assertUsable(tenantId, input.storeId);
 
+    return runWithTenant(this.db, tenantId, async (tx) => {
       const [session] = await tx
         .insert(cashSessions)
         .values({

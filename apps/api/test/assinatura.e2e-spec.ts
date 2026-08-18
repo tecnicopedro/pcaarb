@@ -100,7 +100,7 @@ describe('Assinatura / billing (e2e)', () => {
     expect(adminReadsSubscription.status).toBe(404);
   });
 
-  it('trocar de plano com assinatura ativa não gera cobrança nova', async () => {
+  it('trocar de plano com assinatura ativa cobra de novo e reinicia o ciclo (fecha o buraco de upgrade->criar loja->downgrade de graça)', async () => {
     const tenant = await registerTenant(app, 'billing-troca-plano');
     await request(app.getHttpServer())
       .post('/api/billing/subscribe')
@@ -118,7 +118,9 @@ describe('Assinatura / billing (e2e)', () => {
     const invoices = await request(app.getHttpServer())
       .get('/api/billing/invoices')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    expect(invoices.body).toHaveLength(1); // só a cobrança da assinatura inicial, troca de plano não cobrou de novo
+    expect(invoices.body).toHaveLength(2); // assinatura inicial + troca de plano, cada uma cobrou de verdade
+    expect(invoices.body[0].amountCents).toBe(34_900); // mais recente primeiro
+    expect(invoices.body[0].status).toBe('paid');
   });
 
   it('cancelar bloqueia o resto da API mas billing continua acessível pra reativar', async () => {
