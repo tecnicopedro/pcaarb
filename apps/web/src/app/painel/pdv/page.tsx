@@ -2,13 +2,22 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
-import { useMemo, useState } from 'react';
-import { Gift, Plus, Receipt, ShoppingCart, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CloudOff, Gift, Plus, Receipt, ShoppingCart, Trash2, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CashSession, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale, Store } from '@pcaarb/shared';
+import type { CashSession, CreateSaleInput, Customer, CustomerLoyaltyBalance, LoyaltyProgram, PaymentMethod, Product, Sale, Store } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL, parseBRLToCents } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
+import { useCurrentUser } from '@/lib/use-current-user';
+import { useOnlineStatus } from '@/lib/use-online-status';
+import {
+  enqueueOfflineSale,
+  listOfflineSales,
+  markOfflineSaleNeedsAttention,
+  removeOfflineSale,
+  type QueuedSale,
+} from '@/lib/offline-sale-queue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -34,6 +43,11 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   pix: 'Pix',
 };
 
+function formatSaleQueueTotal(sale: QueuedSale): string {
+  const totalCents = sale.payload.payments.reduce((sum, p) => sum + p.amountCents, 0);
+  return formatCentsToBRL(totalCents);
+}
+
 async function fetchCurrentSession(accessToken: string): Promise<CashSession | null> {
   try {
     return await apiFetch<CashSession>('/cash-sessions/current', { accessToken });
@@ -48,6 +62,82 @@ async function fetchCurrentSession(accessToken: string): Promise<CashSession | n
 export default function PdvPage() {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
+  const meQuery = useCurrentUser();
+  const tenantId = meQuery.data?.tenant.id;
+  const isOnline = useOnlineStatus();
+
+  const offlineQueueQuery = useQuery({
+    queryKey: ['offline-sale-queue', tenantId],
+    queryFn: () => listOfflineSales(tenantId!),
+    enabled: !!tenantId,
+    // A fila só muda por ação local (venda enfileirada, sync tentado) — não
+    // por nada que aconteça no servidor, então não faz sentido revalidar
+    // sozinha; invalidateQueries dispara a releitura nos momentos certos.
+    staleTime: Infinity,
+    // 'always': o padrão do react-query ('online') pausa a query inteira
+    // enquanto o navegador está offline — errado aqui, já que isto lê do
+    // IndexedDB local, não da rede, e é exatamente o que precisa continuar
+    // funcionando offline.
+    networkMode: 'always',
+  });
+  const pendingSales = offlineQueueQuery.data?.filter((s) => s.status === 'pending') ?? [];
+  const attentionSales = offlineQueueQuery.data?.filter((s) => s.status === 'needs_attention') ?? [];
+
+  // Sincroniza a fila local: reenvia cada venda pendente com a mesma
+  // clientSaleId (idempotente — ver SalesService.create). Recusa de verdade
+  // do servidor (estoque insuficiente, produto desativado, caixa que
+  // originou a venda não existe mais) vira 'needs_attention' e para de
+  // tentar sozinha; falha de rede (ainda offline) deixa como está pra
+  // tentar de novo na próxima reconexão — nunca descarta nem finge sucesso.
+  const flushOfflineQueue = useCallback(async () => {
+    if (!accessToken || !tenantId) return;
+    const queued = await listOfflineSales(tenantId);
+    const toSync = queued.filter((item) => item.status === 'pending');
+    if (toSync.length === 0) return;
+
+    let syncedCount = 0;
+    let attentionCount = 0;
+    for (const item of toSync) {
+      try {
+        await apiFetch<Sale>('/sales', { method: 'POST', accessToken, body: item.payload });
+        await removeOfflineSale(item.clientSaleId);
+        syncedCount += 1;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          await markOfflineSaleNeedsAttention(item.clientSaleId, error.message);
+          attentionCount += 1;
+        }
+        // erro de rede (ainda sem conexão de verdade): deixa 'pending', tenta de novo depois
+      }
+    }
+
+    if (syncedCount > 0) {
+      toast.success(`${syncedCount} venda(s) offline sincronizada(s)`);
+    }
+    if (attentionCount > 0) {
+      toast.error(`${attentionCount} venda(s) offline não puderam ser sincronizadas — veja os detalhes na tela`);
+    }
+    if (syncedCount > 0 || attentionCount > 0) {
+      queryClient.invalidateQueries({ queryKey: ['offline-sale-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['current-cash-session'] });
+    }
+  }, [accessToken, tenantId, queryClient]);
+
+  // Tenta sincronizar ao reconectar, e uma vez ao carregar a página (cobre o
+  // caso de vendas enfileiradas numa aba/sessão anterior enquanto o
+  // dispositivo já está online de novo).
+  useEffect(() => {
+    if (isOnline) {
+      flushOfflineQueue();
+    }
+  }, [isOnline, flushOfflineQueue]);
+
+  async function discardAttentionSale(clientSaleId: string) {
+    await removeOfflineSale(clientSaleId);
+    queryClient.invalidateQueries({ queryKey: ['offline-sale-queue'] });
+    toast.success('Venda pendente descartada');
+  }
 
   const sessionQuery = useQuery({
     queryKey: ['current-cash-session'],
@@ -164,27 +254,89 @@ export default function PdvPage() {
     setPayments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  const createSaleMutation = useMutation({
-    mutationFn: () =>
-      apiFetch<Sale>('/sales', {
-        method: 'POST',
-        accessToken: accessToken!,
-        body: {
-          customerId: selectedCustomerId || undefined,
-          items: cart.map((line) => ({ productId: line.productId, quantity: line.quantity })),
-          discountCents,
-          pointsToRedeem,
-          payments: payments.map((p) => ({ method: p.method, amountCents: parseBRLToCents(p.amountReais || '0') })),
-        },
-      }),
-    onSuccess: (sale) => {
-      setLastSale(sale);
+  type CreateSaleOutcome = { kind: 'synced'; sale: Sale } | { kind: 'queued' };
+
+  const createSaleMutation = useMutation<CreateSaleOutcome, Error, void>({
+    // 'always': o padrão do react-query ('online') PAUSA a mutation inteira
+    // enquanto o navegador está offline — nunca chega a chamar mutationFn,
+    // só retoma quando a conexão volta. Isso anularia completamente o
+    // enfileiramento local (o objetivo inteiro desta mutation): o botão
+    // ficaria girando pra sempre até reconectar, em vez de salvar a venda no
+    // dispositivo na hora. mutationFn já trata a conectividade sozinho
+    // (checagem de isOnline + catch de falha de rede), então não precisa —
+    // e não pode — depender do controle de rede do react-query aqui.
+    networkMode: 'always',
+    mutationFn: async (): Promise<CreateSaleOutcome> => {
+      // clientSaleId nasce AQUI, já dentro do corpo que vai pro servidor —
+      // é a mesma chave usada como id da fila local (offline-sale-queue) e a
+      // mandada num eventual retry de sincronização, garantindo que o
+      // servidor veja sempre a mesma clientSaleId pra esta venda em
+      // qualquer tentativa (ver SalesService.create — idempotência real
+      // depende da chave ser idêntica em toda tentativa, não só existir).
+      const clientSaleId = crypto.randomUUID();
+      const body: CreateSaleInput = {
+        customerId: selectedCustomerId || undefined,
+        items: cart.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+        discountCents,
+        pointsToRedeem,
+        payments: payments.map((p) => ({ method: p.method, amountCents: parseBRLToCents(p.amountReais || '0') })),
+        clientSaleId,
+      };
+
+      // Sem conexão de verdade: nem tenta a requisição, enfileira direto —
+      // evita esperar o timeout do fetch pra descobrir o óbvio.
+      if (!isOnline) {
+        await enqueueOfflineSale({
+          clientSaleId,
+          tenantId: tenantId!,
+          payload: body,
+          queuedAt: new Date().toISOString(),
+          status: 'pending',
+          lastError: null,
+        });
+        return { kind: 'queued' };
+      }
+
+      try {
+        const sale = await apiFetch<Sale>('/sales', { method: 'POST', accessToken: accessToken!, body });
+        return { kind: 'synced', sale };
+      } catch (error) {
+        // ApiError = o servidor respondeu e recusou a venda de verdade
+        // (estoque insuficiente, pagamento não fecha etc.) — não é um
+        // problema de conectividade, tem que aparecer pro operador agora,
+        // não ficar escondido numa fila.
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        // Qualquer outro erro aqui é o fetch falhando por rede (a conexão
+        // caiu bem na hora de finalizar) — a venda já foi conferida no
+        // cliente (carrinho, pagamento fechado), então vira uma venda
+        // enfileirada com a MESMA clientSaleId que seria usada num retry
+        // manual, em vez de o operador simplesmente perder a venda.
+        await enqueueOfflineSale({
+          clientSaleId,
+          tenantId: tenantId!,
+          payload: body,
+          queuedAt: new Date().toISOString(),
+          status: 'pending',
+          lastError: null,
+        });
+        return { kind: 'queued' };
+      }
+    },
+    onSuccess: (outcome) => {
+      if (outcome.kind === 'synced') {
+        setLastSale(outcome.sale);
+        queryClient.invalidateQueries({ queryKey: ['loyalty-balance', selectedCustomerId] });
+      } else {
+        toast.success('Sem conexão — venda salva no dispositivo. Será enviada automaticamente quando a internet voltar.');
+        queryClient.invalidateQueries({ queryKey: ['offline-sale-queue'] });
+      }
       setCart([]);
       setPayments([]);
       setDiscountReais('');
       setPointsToRedeemInput('');
       setSaleError(null);
-      queryClient.invalidateQueries({ queryKey: ['loyalty-balance', selectedCustomerId] });
     },
     onError: (error) => {
       setSaleError(error instanceof ApiError ? error.message : 'Erro inesperado ao registrar a venda');
@@ -278,8 +430,69 @@ export default function PdvPage() {
         <>
           <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm dark:border-green-900 dark:bg-green-950">
             <span>Caixa aberto — abertura {formatCentsToBRL(sessionQuery.data.openingAmountCents)}</span>
-            <Badge variant="success">Aberto</Badge>
+            <div className="flex items-center gap-2">
+              {!isOnline && (
+                <Badge variant="warning" className="flex items-center gap-1">
+                  <WifiOff className="h-3 w-3" />
+                  Sem conexão
+                </Badge>
+              )}
+              <Badge variant="success">Aberto</Badge>
+            </div>
           </div>
+
+          {!isOnline && (
+            <p className="flex items-center gap-1.5 text-xs text-muted">
+              <CloudOff className="h-3.5 w-3.5" />
+              Vendas continuam funcionando offline — ficam salvas neste dispositivo e são enviadas automaticamente quando a
+              internet voltar. Preços e estoque exibidos são os últimos conhecidos
+              {productsQuery.dataUpdatedAt ? ` (${new Date(productsQuery.dataUpdatedAt).toLocaleTimeString('pt-BR')})` : ''}.
+            </p>
+          )}
+
+          {(pendingSales.length > 0 || attentionSales.length > 0) && (
+            <Card className="flex flex-col gap-3">
+              <h2 className="flex items-center gap-1.5 text-sm font-medium">
+                <CloudOff className="h-4 w-4" />
+                Vendas offline
+              </h2>
+              {pendingSales.length > 0 && (
+                <p className="text-sm text-muted">
+                  {pendingSales.length} venda(s) aguardando conexão pra sincronizar
+                  {isOnline ? ' (tentando agora)...' : '.'}
+                </p>
+              )}
+              {attentionSales.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-500">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {attentionSales.length} venda(s) offline não puderam ser sincronizadas — precisam de atenção:
+                  </p>
+                  {attentionSales.map((sale) => (
+                    <div
+                      key={sale.clientSaleId}
+                      className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950"
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span>
+                          Venda de {new Date(sale.queuedAt).toLocaleString('pt-BR')} —{' '}
+                          {formatSaleQueueTotal(sale)}
+                        </span>
+                        <span className="text-amber-700 dark:text-amber-500">{sale.lastError}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 text-red-600 hover:underline"
+                        onClick={() => discardAttentionSale(sale.clientSaleId)}
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
 
           <AnimatePresence>
             {lastSale && (

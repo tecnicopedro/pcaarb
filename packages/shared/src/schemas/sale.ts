@@ -32,6 +32,11 @@ export const createSaleSchema = z.object({
   // exige um cliente identificado na venda.
   pointsToRedeem: z.number().int().nonnegative().optional().default(0),
   payments: z.array(createSalePaymentSchema).min(1, 'Informe ao menos uma forma de pagamento'),
+  // Gerado no cliente (crypto.randomUUID()) só pelo PDV offline, no momento
+  // em que a venda é enfileirada — chave de idempotência pro sync: reenviar
+  // a mesma venda (retry, fila processada duas vezes) devolve a venda já
+  // criada em vez de vender de novo. Ausente numa venda online normal.
+  clientSaleId: z.string().uuid().optional(),
 });
 
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;
@@ -70,6 +75,7 @@ export const saleSchema = z.object({
   subtotalCents: z.number().int(),
   discountCents: z.number().int(),
   totalCents: z.number().int(),
+  clientSaleId: z.string().uuid().nullable(),
   createdAt: z.string().datetime(),
   pointsRedeemed: z.number().int(),
   pointsEarned: z.number().int(),
