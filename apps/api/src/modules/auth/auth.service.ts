@@ -15,6 +15,15 @@ import { UsersService } from '../users/users.service';
 
 const BCRYPT_ROUNDS = 12;
 
+// Hash fixo gerado uma vez no boot (não por request) — comparado quando o
+// e-mail não existe, pra login nunca vazar por tempo de resposta se um
+// e-mail está cadastrado ou não. Sem isso, "e-mail não encontrado" responde
+// na velocidade de uma query indexada (poucos ms) e "senha errada" na
+// velocidade do bcrypt.compare (dezenas de ms) — mesma mensagem de erro nos
+// dois casos, mas o tempo de resposta já é um oráculo de enumeração de
+// e-mail (achado de revisão de segurança, 2026-08-18).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('senha-fixa-so-pra-igualar-o-tempo-de-resposta', BCRYPT_ROUNDS);
+
 interface RefreshJwtPayload {
   sub: string;
   jti: string;
@@ -42,12 +51,11 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<AuthTokens> {
     const user = await this.usersService.findByEmail(input.email);
-    if (!user) {
-      throw new UnauthorizedException('E-mail ou senha inválidos');
-    }
-
-    const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
-    if (!passwordMatches) {
+    // bcrypt.compare roda sempre, mesmo sem usuário — contra o hash real se
+    // existe, contra o dummy se não. Nunca pular esse passo condicionalmente
+    // (ver DUMMY_PASSWORD_HASH acima).
+    const passwordMatches = await bcrypt.compare(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !passwordMatches) {
       throw new UnauthorizedException('E-mail ou senha inválidos');
     }
 

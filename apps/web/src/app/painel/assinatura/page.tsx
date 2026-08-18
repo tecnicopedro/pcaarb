@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, CreditCard, FileText, XCircle } from 'lucide-react';
+import { CheckCircle2, CreditCard, FileText, Lock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   SUBSCRIPTION_PLAN_CATALOG,
@@ -36,6 +36,12 @@ export default function AssinaturaPage() {
   const meQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const canManage = meQuery.data?.user.role === 'owner';
+  // GET /billing/subscription e /billing/invoices exigem owner/admin no
+  // backend (achado de revisão de segurança, 2026-08-18 — antes eram
+  // acessíveis a qualquer papel autenticado). Sem esse gate aqui, financeiro/
+  // operador_caixa navegando pra essa página ficariam vendo as consultas
+  // falharem com 403 sem nenhuma explicação.
+  const canView = meQuery.data?.user.role === 'owner' || meQuery.data?.user.role === 'admin';
 
   const subscriptionQuery = useQuery({
     queryKey: ['billing', 'subscription'],
@@ -52,13 +58,13 @@ export default function AssinaturaPage() {
         throw error;
       }
     },
-    enabled: !!accessToken,
+    enabled: !!accessToken && canView,
   });
 
   const invoicesQuery = useQuery({
     queryKey: ['billing', 'invoices'],
     queryFn: () => apiFetch<SubscriptionInvoice[]>('/billing/invoices', { accessToken: accessToken! }),
-    enabled: !!accessToken,
+    enabled: !!accessToken && canView,
   });
 
   function invalidateAll() {
@@ -88,12 +94,23 @@ export default function AssinaturaPage() {
     },
   });
 
-  if (!accessToken || subscriptionQuery.isLoading) {
+  if (!accessToken || !meQuery.data || (canView && subscriptionQuery.isLoading)) {
     return (
       <>
         <h1 className="text-2xl font-semibold tracking-tight">Assinatura</h1>
         <Card className="flex flex-col gap-4">
           <SkeletonRows rows={2} cols={1} />
+        </Card>
+      </>
+    );
+  }
+
+  if (!canView) {
+    return (
+      <>
+        <h1 className="text-2xl font-semibold tracking-tight">Assinatura</h1>
+        <Card>
+          <EmptyState icon={Lock} message="Só dono e administrador veem os dados de assinatura e cobrança." />
         </Card>
       </>
     );

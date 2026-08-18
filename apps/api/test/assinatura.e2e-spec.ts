@@ -92,12 +92,26 @@ describe('Assinatura / billing (e2e)', () => {
       .send({ plan: 'starter' });
     expect(cashierSubscribe.status).toBe(403);
 
-    // Leitura continua liberada pra qualquer papel do tenant (404 aqui é
-    // porque não existe assinatura, não porque foi bloqueado por RBAC).
+    // Leitura fica restrita a owner/admin (achado de revisão de segurança,
+    // 2026-08-18 — antes deste fix, qualquer papel autenticado do tenant,
+    // inclusive operador_caixa, lia plano/preço/histórico de cobrança sem
+    // nenhuma checagem, porque o endpoint não declarava @Roles nenhum e
+    // RolesGuard/AbilityGuard são "no-op" nesse caso). 404 aqui é porque não
+    // existe assinatura ainda, não porque foi bloqueado por RBAC.
     const adminReadsSubscription = await request(app.getHttpServer())
       .get('/api/billing/subscription')
       .set('Authorization', `Bearer ${admin.accessToken}`);
     expect(adminReadsSubscription.status).toBe(404);
+
+    const cashierReadsSubscription = await request(app.getHttpServer())
+      .get('/api/billing/subscription')
+      .set('Authorization', `Bearer ${cashier.accessToken}`);
+    expect(cashierReadsSubscription.status).toBe(403);
+
+    const cashierReadsInvoices = await request(app.getHttpServer())
+      .get('/api/billing/invoices')
+      .set('Authorization', `Bearer ${cashier.accessToken}`);
+    expect(cashierReadsInvoices.status).toBe(403);
   });
 
   it('trocar de plano com assinatura ativa cobra de novo e reinicia o ciclo (fecha o buraco de upgrade->criar loja->downgrade de graça)', async () => {
