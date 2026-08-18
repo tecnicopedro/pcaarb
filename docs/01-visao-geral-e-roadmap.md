@@ -1,5 +1,7 @@
 # PCAARB — Visão Geral e Roadmap de Produto
 
+> **Nota (2026-08-18):** este documento descreve a visão e o roadmap por fases — continua válido como plano. Para o que já foi implementado e testado fase a fase, ver a seção "Status atual" em [README.md](../README.md).
+
 ## 1. O que é o PCAARB
 
 Um SaaS de gestão empresarial (ERP) com PDV como porta de entrada. A tese é simples: o pequeno/médio varejista brasileiro hoje escolhe entre dois extremos ruins — sistemas legados pesados e caros no estilo TOTVS/Linx/Consinco (poderosos, mas lentos, feios, caros de implantar) ou ferramentas leves demais que não crescem com o negócio (planilha, apps de PDV sem retaguarda de verdade).

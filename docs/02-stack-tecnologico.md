@@ -2,6 +2,14 @@
 
 > **Este documento existe para sua confirmação antes de começar a codar.** Onde há mais de uma opção razoável, listo a alternativa considerada e por que não foi a escolhida — para você poder discordar de um ponto específico sem rejeitar o pacote inteiro.
 
+> **Nota (2026-08-18):** este é o documento de proposta original, anterior à Fase 0 — mantido como registro do raciocínio por trás das escolhas, não como status atual. Para o que foi de fato implementado, [README.md](../README.md) é a fonte de verdade (seção "Status atual", atualizada a cada módulo entregue). Alguns pontos abaixo divergiram da proposta durante a implementação real, porque a necessidade que os justificava nunca se materializou nesta escala — nenhum deles bloqueia nada hoje, mas vale saber antes de assumir que estão prontos:
+> - **BullMQ + Redis (seção 3):** não usado. Emissão fiscal, pagamento e e-mail de convite rodam de forma síncrona dentro do próprio request (com contingência/retry manual onde faz sentido, não fila) — suficiente no volume atual; revisitar se algum desses passos ficar lento o bastante para valer a complexidade operacional de uma fila.
+> - **Playwright como suite de E2E automatizado (seção 7):** não existe como suite comitada — os testes automatizados de verdade são Vitest+Supertest contra a API real (`apps/api/test/`, rodando em CI). Playwright é usado nas sessões de desenvolvimento para verificação manual ao vivo do frontend, não como testes que rodam sozinhos.
+> - **2FA (seção 6) e log de auditoria de ações privilegiadas (seção 11):** adiados deliberadamente, não esquecidos — ver "Hardening de segurança pós-revisão" no README para a lista completa de itens adiados conscientemente.
+> - **Observabilidade — Sentry/OpenTelemetry/Better Stack (seção 10):** ainda não instrumentado.
+> - **Dependabot/Snyk (seção 11):** ainda não configurado.
+> - **CI/CD (seção 8):** lint/typecheck/test/e2e/build agora rodam de verdade em todo push/PR (`.github/workflows/ci.yml`) — mas deploy automático para staging/produção não existe: nenhum ambiente de produção foi provisionado ainda (ver memória do agente sobre os bloqueios de lançamento).
+
 ## 1. Requisitos que guiaram a escolha
 
 Você pediu que a stack considerasse: controle de versão, segurança, validações, testes, desempenho, qualidade, e flexibilidade de comunicação front↔back. A isso eu somo uma restrição real do projeto: **orçamento inicial baixo, mas sem abrir mão de qualidade** — ou seja, priorizar ferramentas com free tier/custo baixo em escala pequena, que não exijam reescrita quando a escala crescer.
