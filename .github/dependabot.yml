@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Monorepo pnpm workspaces — um único diretório raiz cobre apps/api,
+  # apps/web e packages/shared (Dependabot resolve o workspace inteiro a
+  # partir do pnpm-lock.yaml na raiz).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

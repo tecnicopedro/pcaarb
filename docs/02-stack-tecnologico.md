@@ -7,7 +7,7 @@
 > - **Playwright como suite de E2E automatizado (seção 7):** não existe como suite comitada — os testes automatizados de verdade são Vitest+Supertest contra a API real (`apps/api/test/`, rodando em CI). Playwright é usado nas sessões de desenvolvimento para verificação manual ao vivo do frontend, não como testes que rodam sozinhos.
 > - **2FA (seção 6) e log de auditoria de ações privilegiadas (seção 11):** adiados deliberadamente, não esquecidos — ver "Hardening de segurança pós-revisão" no README para a lista completa de itens adiados conscientemente.
 > - **Observabilidade — Sentry/OpenTelemetry/Better Stack (seção 10):** ainda não instrumentado.
-> - **Dependabot/Snyk (seção 11):** ainda não configurado.
+> - **Dependabot/Snyk (seção 11):** Dependabot configurado (`.github/dependabot.yml`, npm + github-actions); Snyk não.
 > - **CI/CD (seção 8):** lint/typecheck/test/e2e/build agora rodam de verdade em todo push/PR (`.github/workflows/ci.yml`) — mas deploy automático para staging/produção não existe: nenhum ambiente de produção foi provisionado ainda (ver memória do agente sobre os bloqueios de lançamento).
 
 ## 1. Requisitos que guiaram a escolha
