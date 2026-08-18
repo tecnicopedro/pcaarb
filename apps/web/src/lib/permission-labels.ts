@@ -15,7 +15,6 @@ export const PERMISSION_SUBJECT_LABELS: Record<PermissionSubject, string> = {
   Report: 'Relatórios',
   User: 'Usuários',
   Store: 'Lojas',
-  Integration: 'Integrações',
 };
 
 export const PERMISSION_ACTION_LABELS: Record<PermissionAction, string> = {

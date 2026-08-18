@@ -266,6 +266,17 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ subject: 'UserAccess', action: 'update', effect: 'allow' });
     expect(attemptUserAccess.status).toBe(400);
+
+    // Achado de revisão de segurança (2026-08-18): 'Integration' guarda
+    // POST /api-keys, que minta uma credencial durável com o role pedido.
+    // Um override pontual de 'Integration' (que soa inócuo, tipo "deixa
+    // configurar a integração do marketplace") virava caminho pra um
+    // financeiro/operador_caixa mintar uma chave de API com role:'admin'.
+    const attemptIntegration = await request(app.getHttpServer())
+      .post(`/api/users/${cashier.id}/permission-overrides`)
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ subject: 'Integration', action: 'create', effect: 'allow' });
+    expect(attemptIntegration.status).toBe(400);
   });
 
   it('override em "User" (leitura de identidade) não permite escalonamento via convite/troca de papel', async () => {

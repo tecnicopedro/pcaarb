@@ -5,6 +5,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { ApiKey, CreateApiKeyInput, CreatedApiKey, JwtPayload, Role } from '@pcaarb/shared';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { apiKeys, users, type ApiKeyRow } from '../../database/schema/index';
+import { canAssignApiKeyRole } from './role-rank';
 
 // Prefixo estável e reconhecível (mesmo racional de chaves do Stripe/GitHub)
 // — ajuda a identificar um segredo PCAARB vazado por engano (ex.: em scanner
@@ -55,8 +56,13 @@ export class ApiKeysService {
   // depois de emitir o token ainda conseguiria mintar uma chave com papel
   // de owner.
   async create(tenantId: string, createdByUserId: string, actingRole: Role, input: CreateApiKeyInput): Promise<CreatedApiKey> {
-    if (input.role === 'owner' && actingRole !== 'owner') {
-      throw new ForbiddenException('Só um owner pode criar uma chave de API com papel de owner');
+    // Ninguém minta uma chave com mais privilégio do que já tem — nem só
+    // o caso owner (achado de revisão de segurança de 2026-08-18: o
+    // subject 'Integration' que guarda este endpoint já foi excluído de
+    // permissionSubjectSchema por ser overridable e permitir esse
+    // caminho, este check é a segunda camada, não a única).
+    if (!canAssignApiKeyRole(actingRole, input.role)) {
+      throw new ForbiddenException('Você não pode criar uma chave de API com papel maior que o seu');
     }
     if (input.expiresAt && new Date(input.expiresAt) <= new Date()) {
       throw new BadRequestException('Data de expiração precisa estar no futuro');

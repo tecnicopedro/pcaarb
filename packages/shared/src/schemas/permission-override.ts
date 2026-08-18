@@ -5,12 +5,22 @@ export const permissionActionSchema = z.enum(['manage', 'create', 'read', 'updat
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
 
 // Espelha o `Subject` do CASL (apps/api/src/common/casl/ability.factory.ts),
-// exceto 'all', 'Tenant' e 'UserAccess' — override não pode conceder acesso
-// de nível tenant, o wildcard, nem convidar/trocar papel de usuário
-// ('UserAccess'), pra não virar um caminho de escalonamento de privilégio
-// por fora do papel de owner/admin. 'User' aqui só cobre leitura de
-// identidade (listar usuários/convites); UserAccess é gerido só pelo papel
-// base, nunca por override — ver ability.factory.ts.
+// exceto 'all', 'Tenant', 'UserAccess' e 'Integration' — override não pode
+// conceder acesso de nível tenant, o wildcard, nem convidar/trocar papel de
+// usuário ('UserAccess'), pra não virar um caminho de escalonamento de
+// privilégio por fora do papel de owner/admin. 'User' aqui só cobre leitura
+// de identidade (listar usuários/convites); UserAccess é gerido só pelo
+// papel base, nunca por override — ver ability.factory.ts.
+//
+// 'Integration' foi excluído depois de um achado de revisão de segurança
+// (2026-08-18): é o mesmo subject que gate POST /api-keys, que mint uma
+// credencial durável com o `role` que o chamador pedir (só bloqueava
+// role:'owner' por quem não é owner). Um financeiro/operador_caixa com um
+// override pontual de 'Integration' — algo que soa inócuo, tipo "deixa essa
+// pessoa configurar a integração do marketplace" — conseguia usar a mesma
+// permissão pra mintar uma chave de API com role:'admin', ganhando acesso
+// equivalente a admin de forma durável. Mesma classe de bug que motivou
+// excluir 'UserAccess' acima; mesma correção.
 export const permissionSubjectSchema = z.enum([
   'Sale',
   'CashSession',
@@ -26,7 +36,6 @@ export const permissionSubjectSchema = z.enum([
   'Report',
   'User',
   'Store',
-  'Integration',
 ]);
 
 export type PermissionSubject = z.infer<typeof permissionSubjectSchema>;

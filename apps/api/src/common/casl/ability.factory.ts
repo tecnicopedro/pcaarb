@@ -15,7 +15,10 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 // risco). Convidar/trocar papel viram 'UserAccess', um subject à parte,
 // porque concedem controle equivalente a admin (convidar já como admin,
 // promover a admin) e por isso NUNCA podem ser alvo de override — ver
-// exclusão em permissionSubjectSchema (packages/shared).
+// exclusão em permissionSubjectSchema (packages/shared). 'Integration'
+// também é excluído de lá pelo mesmo motivo: gate POST /api-keys, que mint
+// credencial durável com o role pedido — um override pontual de
+// 'Integration' virava caminho de escalonamento pra role:'admin'.
 export type Subject =
   | 'all'
   | 'Sale'

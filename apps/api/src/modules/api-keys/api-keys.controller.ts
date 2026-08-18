@@ -7,9 +7,12 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { UsersService } from '../users/users.service';
 import { ApiKeysService } from './api-keys.service';
 
-// Mesmo subject 'Integration' do módulo de marketplace (admin/owner-only) —
-// chave de API É uma forma de configurar integração externa, não um
-// conceito à parte que precisaria de um novo subject CASL.
+// Mesmo subject 'Integration' do módulo de marketplace — chave de API É uma
+// forma de configurar integração externa, não um conceito à parte que
+// precisaria de um novo subject CASL. 'Integration' é excluído de
+// permissionSubjectSchema (packages/shared), então só o papel base
+// admin/owner chega aqui, nunca por override pontual — ver o comentário
+// nesse schema pra o motivo (achado de revisão de segurança, 2026-08-18).
 @ApiTags('api-keys')
 @ApiBearerAuth()
 @Controller('api-keys')
