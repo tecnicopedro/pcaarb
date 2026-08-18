@@ -142,3 +142,7 @@ pnpm dev                       # API em :3001, Web em :3000
 ## Convenção do repositório
 
 Projeto vive em `documentos/pcaarb` (mesma convenção usada em outros projetos como `marketplace_local` e `darkpedia` neste ambiente), com git próprio e `.gitignore` isolando-o dos demais arquivos da pasta `documentos`.
+
+## Licença
+
+Repositório público só para portfólio/avaliação técnica — não é código aberto. Ver [LICENSE](LICENSE): nenhum uso além de leitura é autorizado sem permissão expressa. `"license": "UNLICENSED"` em todo `package.json` do monorepo, pelo mesmo motivo.

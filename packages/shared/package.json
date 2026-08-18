@@ -2,6 +2,7 @@
   "name": "@pcaarb/shared",
   "version": "0.0.0",
   "private": true,
+  "license": "UNLICENSED",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

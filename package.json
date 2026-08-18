@@ -1,6 +1,7 @@
 {
   "name": "pcaarb",
   "private": true,
+  "license": "UNLICENSED",
   "version": "0.0.0",
   "engines": {
     "node": ">=22.0.0"
