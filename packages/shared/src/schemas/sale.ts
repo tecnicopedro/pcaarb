@@ -93,3 +93,15 @@ export const saleSchema = z.object({
 });
 
 export type Sale = z.infer<typeof saleSchema>;
+
+// Formato de GET /sales (lista): sem items/payments/fiscalDocument, que só
+// vêm no detalhe (GET /sales/:id) — evita N+1 pra montar o histórico.
+export const saleListItemSchema = saleSchema.omit({
+  items: true,
+  payments: true,
+  fiscalDocument: true,
+  pointsRedeemed: true,
+  pointsEarned: true,
+});
+
+export type SaleListItem = z.infer<typeof saleListItemSchema>;

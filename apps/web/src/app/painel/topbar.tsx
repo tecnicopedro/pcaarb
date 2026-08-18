@@ -16,6 +16,7 @@ import {
   Package,
   Percent,
   Plug,
+  Receipt,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -35,7 +36,9 @@ interface NavLink {
   icon: LucideIcon;
 }
 
-type NavEntry = { kind: 'link'; link: NavLink } | { kind: 'group'; label: string; icon: LucideIcon; items: NavLink[] };
+type NavEntry =
+  | { kind: 'link'; link: NavLink }
+  | { kind: 'group'; label: string; icon: LucideIcon; items: NavLink[] };
 
 // Agrupado em vez de uma lista única (que passou de 14 itens e obrigava a
 // rolar a barra pra encontrar algo): Painel/PDV ficam soltos por serem as
@@ -49,6 +52,7 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: Package,
     items: [
       { href: '/painel/produtos', label: 'Produtos', icon: Package },
+      { href: '/painel/vendas', label: 'Vendas', icon: Receipt },
       { href: '/painel/contagens', label: 'Inventário', icon: ClipboardList },
       { href: '/painel/compras', label: 'Compras', icon: ShoppingBag },
     ],
@@ -92,7 +96,9 @@ function isActive(pathname: string, href: string) {
 const navLinkClass = (active: boolean) =>
   cn(
     'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-    active ? 'bg-accent-soft text-accent' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800',
+    active
+      ? 'bg-accent-soft text-accent'
+      : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800',
   );
 
 function NavGroup({
@@ -184,7 +190,11 @@ function NavBar() {
     <nav className="flex flex-1 items-center gap-1">
       {NAV_ENTRIES.map((entry) =>
         entry.kind === 'link' ? (
-          <Link key={entry.link.href} href={entry.link.href} className={navLinkClass(isActive(pathname, entry.link.href))}>
+          <Link
+            key={entry.link.href}
+            href={entry.link.href}
+            className={navLinkClass(isActive(pathname, entry.link.href))}
+          >
             <entry.link.icon className="h-4 w-4" />
             {entry.link.label}
           </Link>
@@ -196,7 +206,9 @@ function NavBar() {
             items={entry.items}
             pathname={pathname}
             open={openGroup === entry.label}
-            onToggle={() => setOpenGroup((current) => (current === entry.label ? null : entry.label))}
+            onToggle={() =>
+              setOpenGroup((current) => (current === entry.label ? null : entry.label))
+            }
             onClose={() => setOpenGroup(null)}
           />
         ),
