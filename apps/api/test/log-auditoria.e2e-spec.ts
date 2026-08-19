@@ -14,11 +14,11 @@ import { EMAIL_PROVIDER, type EmailProvider, type SendPasswordResetEmailParams }
 import { registerTenant } from './helpers/register-tenant';
 import { openCashSession } from './helpers/open-cash-session';
 
-// Assina o JWT direto (mesmo padrão de fidelidade.e2e-spec.ts e
-// permissoes-granulares.e2e-spec.ts) em vez de chamar POST /auth/login —
-// evita gastar o rate-limit de 5/min do login com usuários de teste que só
-// precisam de um token válido, deixando esse orçamento pros testes que
-// realmente exercitam o fluxo de login (reset de senha, bloqueio de conta).
+// Signs the JWT directly (same pattern as fidelidade.e2e-spec.ts and
+// permissoes-granulares.e2e-spec.ts) instead of calling POST /auth/login —
+// avoids spending the login's 5/min rate limit on test users that only need
+// a valid token, leaving that budget for tests that actually exercise the
+// login flow (password reset, account lockout).
 async function mintUser(app: INestApplication, db: Database, tenantId: string, role: 'admin' | 'operador_caixa' | 'financeiro') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
   const passwordHash = await bcrypt.hash('SenhaForte123', 12);

@@ -14,8 +14,8 @@ import { PAYMENT_PROVIDER, type PaymentProvider } from '../src/modules/payments/
 import { BillingService } from '../src/modules/billing/billing.service';
 import { registerTenant } from './helpers/register-tenant';
 
-// Mesmo helper de fidelidade/comissoes: cria o usuário direto no banco, sem
-// depender do fluxo de convite/e-mail.
+// Same helper as fidelidade/comissoes: creates the user directly in the
+// database, without relying on the invite/email flow.
 async function mintUser(app: INestApplication, db: Database, tenantId: string, role: 'admin' | 'operador_caixa') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
   const passwordHash = await bcrypt.hash('SenhaForte123', 12);
@@ -92,12 +92,12 @@ describe('Assinatura / billing (e2e)', () => {
       .send({ plan: 'starter' });
     expect(cashierSubscribe.status).toBe(403);
 
-    // Leitura fica restrita a owner/admin (achado de revisão de segurança,
-    // 2026-08-18 — antes deste fix, qualquer papel autenticado do tenant,
-    // inclusive operador_caixa, lia plano/preço/histórico de cobrança sem
-    // nenhuma checagem, porque o endpoint não declarava @Roles nenhum e
-    // RolesGuard/AbilityGuard são "no-op" nesse caso). 404 aqui é porque não
-    // existe assinatura ainda, não porque foi bloqueado por RBAC.
+    // Read access is restricted to owner/admin (security review finding,
+    // 2026-08-18 — before this fix, any authenticated tenant role, including
+    // operador_caixa, could read plan/price/billing history with no check at
+    // all, because the endpoint declared no @Roles and RolesGuard/AbilityGuard
+    // are a no-op in that case). 404 here is because no subscription exists
+    // yet, not because it was blocked by RBAC.
     const adminReadsSubscription = await request(app.getHttpServer())
       .get('/api/billing/subscription')
       .set('Authorization', `Bearer ${admin.accessToken}`);
@@ -132,8 +132,8 @@ describe('Assinatura / billing (e2e)', () => {
     const invoices = await request(app.getHttpServer())
       .get('/api/billing/invoices')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    expect(invoices.body).toHaveLength(2); // assinatura inicial + troca de plano, cada uma cobrou de verdade
-    expect(invoices.body[0].amountCents).toBe(34_900); // mais recente primeiro
+    expect(invoices.body).toHaveLength(2); // initial subscription + plan switch, each actually charged
+    expect(invoices.body[0].amountCents).toBe(34_900); // most recent first
     expect(invoices.body[0].status).toBe('paid');
   });
 
@@ -155,8 +155,8 @@ describe('Assinatura / billing (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(blockedFromProducts.status).toBe(403);
 
-    // Endpoints de billing usam @BypassTenantStatus() — senão o tenant cancelado
-    // nunca conseguiria nem ver a própria fatura nem reativar a assinatura.
+    // Billing endpoints use @BypassTenantStatus() — otherwise a canceled tenant
+    // could never see its own invoice or reactivate the subscription.
     const readSubscriptionWhileCanceled = await request(app.getHttpServer())
       .get('/api/billing/subscription')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
@@ -178,7 +178,7 @@ describe('Assinatura / billing (e2e)', () => {
     const invoicesAfterReactivation = await request(app.getHttpServer())
       .get('/api/billing/invoices')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    expect(invoicesAfterReactivation.body).toHaveLength(2); // assinatura inicial + reativação, cada uma cobrou
+    expect(invoicesAfterReactivation.body).toHaveLength(2); // initial subscription + reactivation, each charged
   });
 
   it('cobrança de renovação bem-sucedida avança o período e registra fatura paga', async () => {
@@ -197,8 +197,8 @@ describe('Assinatura / billing (e2e)', () => {
 
     const [after] = await db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenant.tenantId));
     expect(after?.status).toBe('active');
-    // Renovou a partir da data vencida (ontem), não da data atual — período
-    // novo começa exatamente onde o anterior devia ter terminado.
+    // Renewed from the due date (yesterday), not the current date — the new
+    // period starts exactly where the previous one should have ended.
     expect(after!.currentPeriodEnd.getTime()).toBeGreaterThan(yesterday.getTime());
     expect(after!.currentPeriodStart.getTime()).toBe(yesterday.getTime());
 
@@ -213,7 +213,7 @@ describe('Assinatura / billing (e2e)', () => {
     const invalidPlan = await request(app.getHttpServer())
       .post('/api/billing/subscribe')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ plan: 'enterprise' }); // enterprise é sob consulta, não assinável via checkout
+      .send({ plan: 'enterprise' }); // enterprise is quote-only, not subscribable via checkout
     expect(invalidPlan.status).toBe(400);
 
     const cancelWithoutSubscription = await request(app.getHttpServer())
@@ -259,7 +259,7 @@ describe('Assinatura — inadimplência e carência (e2e)', () => {
     expect(subscribe.body.message).toMatch(/recusad[ao]/i);
 
     const [tenantRow] = await db.select().from(tenants).where(eq(tenants.id, tenant.tenantId));
-    expect(tenantRow?.status).toBe('trial'); // continua em trial, nada foi criado
+    expect(tenantRow?.status).toBe('trial'); // still in trial, nothing was created
 
     const [subscriptionRow] = await db.select().from(subscriptions).where(eq(subscriptions.tenantId, tenant.tenantId));
     expect(subscriptionRow).toBeUndefined();
@@ -276,7 +276,7 @@ describe('Assinatura — inadimplência e carência (e2e)', () => {
     await billingService.processDueBilling();
 
     const [afterFirstFailure] = await db.select().from(tenants).where(eq(tenants.id, tenant.tenantId));
-    expect(afterFirstFailure?.status).toBe('past_due'); // ainda com acesso — carência de 5 dias
+    expect(afterFirstFailure?.status).toBe('past_due'); // still has access — 5-day grace period
 
     const [subscriptionAfterFirstFailure] = await db.select().from(subscriptions).where(eq(subscriptions.id, subscription!.id));
     expect(subscriptionAfterFirstFailure?.status).toBe('past_due');
@@ -287,7 +287,7 @@ describe('Assinatura — inadimplência e carência (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(stillHasAccess.status).toBe(200);
 
-    // Simula carência esgotada: pastDueSince há 10 dias (grace period é 5).
+    // Simulate an exhausted grace period: pastDueSince 10 days ago (grace period is 5).
     const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
     await db.update(subscriptions).set({ pastDueSince: tenDaysAgo, currentPeriodEnd: tenDaysAgo }).where(eq(subscriptions.id, subscription!.id));
 
@@ -301,12 +301,12 @@ describe('Assinatura — inadimplência e carência (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(blockedFromProducts.status).toBe(403);
 
-    // Uma vez bloqueado, o cron para de tentar cobrar sozinho de novo.
+    // Once blocked, the cron stops trying to charge on its own again.
     const processedAfterBlocked = await billingService.processDueBilling();
     expect(processedAfterBlocked).toBe(0);
 
     const invoices = await db.select().from(subscriptionInvoices).where(eq(subscriptionInvoices.tenantId, tenant.tenantId));
-    expect(invoices).toHaveLength(2); // uma por tentativa de cobrança recusada (antes e no dia da carência esgotada)
+    expect(invoices).toHaveLength(2); // one per declined billing attempt (before and on the day the grace period expired)
     expect(invoices.every((invoice) => invoice.status === 'failed')).toBe(true);
   });
 });

@@ -117,7 +117,7 @@ describe('Devolução/estorno de venda (e2e)', () => {
     await addStock(app, tenant.accessToken, productId, 10);
     await openCashSession(app, tenant.accessToken, 5000);
 
-    // subtotal 2000, desconto 200 => total 1800 (paga 90% do preço de tabela)
+    // subtotal 2000, discount 200 => total 1800 (pays 90% of list price)
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -129,7 +129,7 @@ describe('Devolução/estorno de venda (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ refundMethod: 'dinheiro', reason: 'Defeito', items: [{ saleItemId, quantity: 1 }] });
     expect(ret.status).toBe(201);
-    // 1 unidade de 1000, rateada a 90% (1800/2000) = 900
+    // 1 unit of 1000, prorated at 90% (1800/2000) = 900
     expect(ret.body.totalRefundedCents).toBe(900);
   });
 
@@ -150,7 +150,7 @@ describe('Devolução/estorno de venda (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ refundMethod: 'dinheiro', reason: 'Erro', items: [{ saleItemId, quantity: 3 }] });
     expect(ret.status).toBe(400);
-    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(8); // não mudou
+    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(8); // unchanged
 
     const returns = await request(app.getHttpServer())
       .get(`/api/sales/${sale.body.id}/returns`)
@@ -170,10 +170,10 @@ describe('Devolução/estorno de venda (e2e)', () => {
       .send({ items: [{ productId, quantity: 5 }], payments: [{ method: 'dinheiro', amountCents: 5000 }] });
     const saleItemId = sale.body.items[0].id as string;
 
-    // Duas linhas pedindo o mesmo item somam 10, mas só 5 foram vendidas —
-    // se cada linha fosse validada isoladamente contra o saldo (bug real
-    // encontrado em revisão de segurança), as duas passariam e dobrariam o
-    // reembolso/estoque numa única requisição, sem nenhuma corrida envolvida.
+    // Two lines requesting the same item add up to 10, but only 5 were sold —
+    // if each line were validated in isolation against the remaining balance
+    // (a real bug found during security review), both would pass and double
+    // the refund/stock in a single request, with no race condition involved.
     const excedente = await request(app.getHttpServer())
       .post(`/api/sales/${sale.body.id}/returns`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -186,11 +186,11 @@ describe('Devolução/estorno de venda (e2e)', () => {
         ],
       });
     expect(excedente.status).toBe(400);
-    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(5); // não mudou
+    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(5); // unchanged
 
-    // Duas linhas pedindo o mesmo item que juntas cabem no saldo (2+1=3 de 5)
-    // devem ser tratadas como uma devolução de 3 unidades, não gerar dois
-    // movimentos de estoque de 3 (o que devolveria 6 no total).
+    // Two lines requesting the same item that together fit within the balance
+    // (2+1=3 of 5) must be treated as a single return of 3 units, not
+    // generate two stock movements of 3 (which would return 6 in total).
     const dentroDoSaldo = await request(app.getHttpServer())
       .post(`/api/sales/${sale.body.id}/returns`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -203,8 +203,8 @@ describe('Devolução/estorno de venda (e2e)', () => {
         ],
       });
     expect(dentroDoSaldo.status).toBe(201);
-    expect(dentroDoSaldo.body.totalRefundedCents).toBe(3000); // 3 unidades x 1000, não 6
-    expect(dentroDoSaldo.body.items).toHaveLength(1); // uma linha agregada, não duas
+    expect(dentroDoSaldo.body.totalRefundedCents).toBe(3000); // 3 units x 1000, not 6
+    expect(dentroDoSaldo.body.items).toHaveLength(1); // one aggregated line, not two
     expect(dentroDoSaldo.body.items[0].quantity).toBe(3);
     expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(8); // 5 - 5 + 3
   });
@@ -242,7 +242,7 @@ describe('Devolução/estorno de venda (e2e)', () => {
     const customerId = await createCustomer(app, tenant.accessToken);
     await openCashSession(app, tenant.accessToken, 5000);
 
-    // Ganha pontos numa primeira compra pra ter saldo pra resgatar na segunda.
+    // Earn points on a first purchase to have a balance to redeem on the second.
     const firstSale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -312,8 +312,8 @@ describe('Devolução/estorno de venda (e2e)', () => {
     await addStock(app, tenant.accessToken, productId, 10);
     await openCashSession(app, tenant.accessToken, 5000);
 
-    // Venda de R$100 dividida em duas transações de R$50 (cartão + Pix) — nenhuma
-    // das duas, isoladamente, cobre um estorno integral de R$100.
+    // R$100 sale split into two R$50 transactions (card + Pix) — neither one,
+    // by itself, covers a full R$100 refund.
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -332,6 +332,6 @@ describe('Devolução/estorno de venda (e2e)', () => {
       .send({ refundMethod: 'estorno_pagamento', reason: 'Desistiu da compra', items: [{ saleItemId, quantity: 2 }] });
     expect(ret.status).toBe(400);
     expect(ret.body.message).toMatch(/excede o que foi cobrado/i);
-    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(8); // não mudou
+    expect(await stockQuantity(app, tenant.accessToken, productId)).toBe(8); // unchanged
   });
 });

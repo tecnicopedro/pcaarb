@@ -12,9 +12,9 @@ import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
 import { openCashSession } from './helpers/open-cash-session';
 
-// Mesmo motivo do helper em permissoes-granulares.e2e-spec.ts: evita depender
-// do fluxo de convite/e-mail (Resend real no ambiente de teste) e do rate
-// limit de login pra só testar RBAC de leitura/escrita.
+// Same reason as the helper in permissoes-granulares.e2e-spec.ts: avoids
+// depending on the invite/email flow (real Resend in the test environment)
+// and on the login rate limit, so we're only testing read/write RBAC.
 async function mintUser(app: INestApplication, db: Database, tenantId: string, role: 'operador_caixa' | 'financeiro') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
   const passwordHash = await bcrypt.hash('SenhaForte123', 12);
@@ -117,7 +117,7 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
     const customerId = await createCustomer(app, tenant.accessToken);
     await openCashSession(app, tenant.accessToken);
 
-    // Primeira venda: ganha 20 pontos (floor(2000/100) * 1).
+    // First sale: earns 20 points (floor(2000/100) * 1).
     await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -127,8 +127,9 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
         payments: [{ method: 'dinheiro', amountCents: 2000 }],
       });
 
-    // Segunda venda: resgata 500 dos 20 pontos — redeemValueCents default é 1,
-    // então 500 pontos valeriam mais que o saldo; usa só o saldo disponível (20).
+    // Second sale: redeems 500 of the 20 points — redeemValueCents default is
+    // 1, so 500 points would be worth more than the balance; only the
+    // available balance (20) is used.
     const secondSale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -145,7 +146,7 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
     const balanceAfter = await request(app.getHttpServer())
       .get(`/api/customers/${customerId}/loyalty/balance`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    // Saldo: 20 (ganho na 1ª) - 20 (resgate) + pontos ganhos na 2ª venda (floor(1980/100)*1 = 19).
+    // Balance: 20 (earned on 1st) - 20 (redeemed) + points earned on the 2nd sale (floor(1980/100)*1 = 19).
     expect(balanceAfter.body.balancePoints).toBe(19);
   });
 
@@ -170,7 +171,7 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
     const list = await request(app.getHttpServer())
       .get('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    expect(list.body).toHaveLength(0); // venda rejeitada não fica meio-registrada
+    expect(list.body).toHaveLength(0); // a rejected sale doesn't stay half-recorded
   });
 
   it('rejeita resgate de pontos sem cliente selecionado na venda', async () => {
@@ -223,7 +224,7 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
         payments: [{ method: 'dinheiro', amountCents: 1000 }],
       });
     expect(normalSale.status).toBe(201);
-    expect(normalSale.body.pointsEarned).toBe(0); // programa inativo não gera pontos
+    expect(normalSale.body.pointsEarned).toBe(0); // an inactive program doesn't generate points
   });
 
   it('histórico de pontos (ledger) mostra ganho e resgate na ordem certa', async () => {
@@ -266,12 +267,12 @@ describe('Fidelidade — pontos e resgate (e2e)', () => {
     const crossTenantBalance = await request(app.getHttpServer())
       .get(`/api/customers/${customerId}/loyalty/balance`)
       .set('Authorization', `Bearer ${tenantB.accessToken}`);
-    expect(crossTenantBalance.status).toBe(404); // cliente não existe na visão do tenant B
+    expect(crossTenantBalance.status).toBe(404); // customer doesn't exist from tenant B's view
 
     const tenantBProgram = await request(app.getHttpServer())
       .get('/api/loyalty/program')
       .set('Authorization', `Bearer ${tenantB.accessToken}`);
-    expect(tenantBProgram.body.earnRatePoints).toBe(1); // não afetado pela config do tenant A
+    expect(tenantBProgram.body.earnRatePoints).toBe(1); // not affected by tenant A's config
   });
 
   it('operador de caixa e financeiro leem pontos/programa mas não alteram a configuração', async () => {

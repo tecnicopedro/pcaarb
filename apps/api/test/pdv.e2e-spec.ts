@@ -6,8 +6,8 @@ import { AppModule } from '../src/app.module';
 import { registerTenant } from './helpers/register-tenant';
 import { openCashSession } from './helpers/open-cash-session';
 
-// trackStock: false de propósito — estes testes cobrem o fluxo de pagamento
-// e caixa do PDV, não o desconto de estoque (isso é coberto em estoque.e2e-spec.ts).
+// trackStock: false on purpose — these tests cover the PDV's payment and
+// cash-register flow, not the stock deduction (that's covered in estoque.e2e-spec.ts).
 async function createProduct(app: INestApplication, accessToken: string, priceCents: number, name = 'Produto') {
   const response = await request(app.getHttpServer())
     .post('/api/products')
@@ -63,7 +63,7 @@ describe('PDV (e2e)', () => {
 
     await openCashSession(app, tenant.accessToken);
 
-    // 2×899 + 3×350 = 2848; desconto 50 => total 2798
+    // 2×899 + 3×350 = 2848; discount 50 => total 2798
     const sale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)

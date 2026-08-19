@@ -80,7 +80,7 @@ describe('LGPD — exportação e anonimização de dados pessoais (e2e)', () =>
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(remove.status).toBe(204);
 
-    // Ainda existe (não foi apagado), só anonimizado — mesmo id, PII zerada.
+    // Still exists (wasn't deleted), just anonymized — same id, PII cleared.
     const found = await request(app.getHttpServer())
       .get(`/api/customers/${customerId}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);
@@ -90,8 +90,8 @@ describe('LGPD — exportação e anonimização de dados pessoais (e2e)', () =>
     expect(found.body.email).toBeNull();
     expect(found.body.phone).toBeNull();
 
-    // Ledger de fidelidade sobrevive intacto (não cascateou) — a venda
-    // continua com customerId apontando pro mesmo registro anonimizado.
+    // Loyalty ledger survives intact (didn't cascade) — the sale still has
+    // customerId pointing to the same anonymized record.
     const balance = await request(app.getHttpServer())
       .get(`/api/customers/${customerId}/loyalty/balance`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);
@@ -150,10 +150,10 @@ describe('LGPD — exportação e anonimização de dados pessoais (e2e)', () =>
     const passwordHash = await bcrypt.hash('SenhaForte123', 12);
     const [target] = await db.insert(users).values({ tenantId: tenant.tenantId, name: 'Alvo', email, passwordHash, role: 'operador_caixa' }).returning();
 
-    // Loga ANTES de desativar pra capturar um refresh token de verdade — é
-    // esse token, emitido enquanto a conta ainda estava ativa, que precisa
-    // parar de funcionar depois (achado de revisão de segurança, 2026-08-19:
-    // desativar só bloqueava login novo, não revogava sessão já aberta).
+    // Logs in BEFORE deactivating to capture a real refresh token — it's this
+    // token, issued while the account was still active, that needs to stop
+    // working afterward (security review finding, 2026-08-19: deactivating
+    // only blocked new logins, it didn't revoke an already-open session).
     const priorLogin = await request(app.getHttpServer()).post('/api/auth/login').send({ email, password: 'SenhaForte123' });
     const priorRefreshToken = priorLogin.body.refreshToken as string;
 
@@ -170,7 +170,7 @@ describe('LGPD — exportação e anonimização de dados pessoais (e2e)', () =>
     expect(refreshAttempt.status).toBe(401);
 
     const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, target!.id));
-    expect(row).toBeDefined(); // continua existindo, não foi apagado
+    expect(row).toBeDefined(); // still exists, wasn't deleted
   });
 
   it('não permite desativar a própria conta nem o último owner ativo do tenant', async () => {

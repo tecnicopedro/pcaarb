@@ -167,8 +167,8 @@ describe('Lojas / multi-loja (e2e)', () => {
 
     const productId = await createProduct(app, tenant.accessToken, 1000);
 
-    // Uma venda na loja padrão, depois fecha o caixa (só um caixa aberto por
-    // operador de cada vez) e abre outro na 2ª loja com outra venda.
+    // One sale at the default store, then closes the register (only one open
+    // register per operator at a time) and opens another at the 2nd store with another sale.
     await request(app.getHttpServer())
       .post('/api/cash-sessions')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -217,8 +217,8 @@ describe('Lojas / multi-loja (e2e)', () => {
       .send({ name: 'Filial Temporária' });
     const secondStoreId = secondStore.body.id as string;
 
-    // Volta pro Starter — a loja extra continua existindo (não é apagada),
-    // mas não pode mais ser usada pra abrir caixa.
+    // Downgrade back to Starter — the extra store still exists (it's not
+    // deleted), but it can no longer be used to open a register.
     await subscribeToPlan(app, tenant.accessToken, 'starter');
 
     const openOnExtraStore = await request(app.getHttpServer())
@@ -234,7 +234,7 @@ describe('Lojas / multi-loja (e2e)', () => {
       .post('/api/cash-sessions')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ storeId: firstStoreId, openingAmountCents: 0 });
-    expect(openOnDefaultStore.status).toBe(201); // a loja original (padrão) nunca é bloqueada, em nenhum plano
+    expect(openOnDefaultStore.status).toBe(201); // the original (default) store is never blocked, on any plan
   });
 
   it('isola lojas entre tenants diferentes (RLS)', async () => {

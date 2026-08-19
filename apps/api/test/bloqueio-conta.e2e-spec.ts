@@ -8,16 +8,16 @@ import { DRIZZLE, type Database } from '../src/database/drizzle.provider';
 import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
 
-// Arquivo separado de recuperacao-senha.e2e-spec.ts de propósito: cada
-// arquivo de teste ganha sua própria instância da aplicação (própria
-// contagem de rate-limit em memória do ThrottlerGuard), e testar bloqueio de
-// conta precisa de várias chamadas reais a POST /auth/login — dividir evita
-// esbarrar no limite de 5/min do endpoint por puro acúmulo de testes não
-// relacionados no mesmo arquivo. Estado de tentativas é sempre semeado direto
-// no banco quando o teste não precisa validar o INCREMENTO em si, só o
-// comportamento numa quantidade já conhecida (mesmo racional de mintUser em
-// fidelidade.e2e-spec.ts) — mantém o total de chamadas reais de login por
-// arquivo bem abaixo do limite.
+// Kept as a separate file from recuperacao-senha.e2e-spec.ts on purpose: each
+// test file gets its own application instance (its own in-memory rate-limit
+// count from ThrottlerGuard), and testing account lockout requires several
+// real calls to POST /auth/login — splitting it avoids hitting the endpoint's
+// 5/min limit from pure accumulation of unrelated tests in the same file.
+// Attempt state is always seeded directly in the database when the test
+// doesn't need to validate the INCREMENT itself, only the behavior at an
+// already-known count (same rationale as mintUser in
+// fidelidade.e2e-spec.ts) — keeps the total number of real login calls per
+// file well below the limit.
 describe('Bloqueio de conta por tentativas de login (e2e)', () => {
   let app: INestApplication;
   let db: Database;
@@ -48,13 +48,13 @@ describe('Bloqueio de conta por tentativas de login (e2e)', () => {
     expect(locked!.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
   });
 
-  // Achado de revisão de segurança (2026-08-19): a mensagem de "bloqueada" só
-  // aparecia quando a senha submetida estava CERTA (o branch de lockout só
-  // era alcançado depois de passwordMatches === true) — um atacante com uma
-  // credencial vazada conseguia confirmar que a senha estava certa mandando
-  // ela contra uma conta já bloqueada, sem nunca completar um login de
-  // verdade. Corrigido checando o bloqueio antes da senha decidir a resposta,
-  // com a mesma mensagem nos dois casos.
+  // Security review finding (2026-08-19): the "locked" message only appeared
+  // when the submitted password was CORRECT (the lockout branch was only
+  // reached after passwordMatches === true) — an attacker with a leaked
+  // credential could confirm the password was correct by sending it against
+  // an already-locked account, without ever completing a real login. Fixed by
+  // checking the lockout before the password decides the response, with the
+  // same message in both cases.
   it('a mensagem de bloqueio é idêntica com senha certa ou errada — não é um oráculo de acerto de senha', async () => {
     const tenant = await registerTenant(app, 'bloqueio-oraculo');
     await db

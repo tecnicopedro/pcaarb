@@ -42,7 +42,7 @@ describe('Expiração de trial (e2e)', () => {
     const [activeTenant] = await db.select().from(tenants).where(eq(tenants.id, withinTrial.tenantId));
     expect(activeTenant?.status).toBe('trial');
 
-    // Rodar de novo não deve remachucar quem já foi bloqueado nem afetar quem está em dia.
+    // Running it again shouldn't re-hurt whoever's already blocked, nor affect whoever's still current.
     await trialExpiryService.expireOverdueTrials();
     const [stillActiveTenant] = await db.select().from(tenants).where(eq(tenants.id, withinTrial.tenantId));
     expect(stillActiveTenant?.status).toBe('trial');

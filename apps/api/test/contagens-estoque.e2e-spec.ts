@@ -67,7 +67,7 @@ describe('Contagem de estoque (e2e)', () => {
     expect(itemB.expectedQuantity).toBe(5);
     expect(itemA.countedQuantity).toBeNull();
 
-    // Contou 8 (perda de 2) no produto A; produto B não foi contado (fica como está).
+    // Counted 8 (a loss of 2) for product A; product B wasn't counted (stays as-is).
     const setCount = await request(app.getHttpServer())
       .patch(`/api/stock-counts/${open.body.id}/items/${itemA.id}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -105,10 +105,10 @@ describe('Contagem de estoque (e2e)', () => {
     const itemId = open.body.items[0].id as string;
     expect(open.body.items[0].expectedQuantity).toBe(10);
 
-    // Durante a contagem, mais 5 entram no estoque (ex.: recebimento de compra).
+    // While the count is open, 5 more units come into stock (e.g., a purchase receipt).
     await stockEntry(app, tenant.accessToken, productId, 5);
 
-    // Contou fisicamente 15 (10 originais + 5 que entraram durante a contagem).
+    // Physically counted 15 (10 original + 5 that came in during the count).
     await request(app.getHttpServer())
       .patch(`/api/stock-counts/${open.body.id}/items/${itemId}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -122,9 +122,10 @@ describe('Contagem de estoque (e2e)', () => {
     const product = await request(app.getHttpServer())
       .get(`/api/products/${productId}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    // Se o ajuste tivesse usado o expectedQuantity (10) como base, o resultado
-    // seria 15 mesmo, mas por acaso — o teste importante é não duplicar nem
-    // apagar a movimentação que aconteceu no meio do caminho.
+    // If the adjustment had used expectedQuantity (10) as the base, the result
+    // would still happen to be 15, but by coincidence — the important thing
+    // this test checks is not duplicating or erasing the movement that
+    // happened in the middle of the count.
     expect(product.body.stockQuantity).toBe(15);
   });
 

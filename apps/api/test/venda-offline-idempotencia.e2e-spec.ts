@@ -7,12 +7,12 @@ import { AppModule } from '../src/app.module';
 import { registerTenant } from './helpers/register-tenant';
 import { openCashSession } from './helpers/open-cash-session';
 
-// Cobre a base de idempotência para o PDV offline (ver
-// pcaarb_mobile_pdv_decision): clientSaleId é a chave que vai deixar o
-// service worker reenviar a mesma venda enfileirada sem risco de vender
-// duas vezes. Não é o fluxo offline completo (isso ainda não existe no
-// frontend), é só o alicerce no backend — testado direto contra o mesmo
-// endpoint POST /sales que o PDV online já usa.
+// Covers the idempotency foundation for the offline PDV (see
+// pcaarb_mobile_pdv_decision): clientSaleId is the key that will let the
+// service worker resend the same queued sale with no risk of selling it
+// twice. This isn't the full offline flow (that doesn't exist in the
+// frontend yet), it's just the backend groundwork — tested directly against
+// the same POST /sales endpoint the online PDV already uses.
 async function createProduct(app: INestApplication, accessToken: string, priceCents: number, name = 'Produto', trackStock = false) {
   const response = await request(app.getHttpServer())
     .post('/api/products')
@@ -63,7 +63,7 @@ describe('Venda offline — idempotência por clientSaleId (e2e)', () => {
 
     const products = await request(app.getHttpServer()).get('/api/products').set('Authorization', `Bearer ${tenant.accessToken}`);
     const product = products.body.find((p: { id: string }) => p.id === productId);
-    expect(product.stockQuantity).toBe(8); // 10 - 2, não 10 - 4
+    expect(product.stockQuantity).toBe(8); // 10 - 2, not 10 - 4
   });
 
   it('replay funciona mesmo se o caixa que originou a venda já fechou entretanto (a venda já existia, não precisa de caixa aberto pra devolvê-la)', async () => {
@@ -82,17 +82,17 @@ describe('Venda offline — idempotência por clientSaleId (e2e)', () => {
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ closingAmountCents: 500 });
 
-    // Uma venda NOVA (sem essa clientSaleId) seria bloqueada por falta de
-    // caixa aberto — confirma que o bloqueio de fato existe neste cenário...
+    // A NEW sale (without this clientSaleId) would be blocked for lack of an
+    // open register — confirms the block actually exists in this scenario...
     const freshSale = await request(app.getHttpServer())
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ items: [{ productId, quantity: 1 }], payments: [{ method: 'dinheiro', amountCents: 500 }] });
     expect(freshSale.status).toBe(400);
 
-    // ...mas o replay da venda que JÁ tinha sido concluída não é uma venda
-    // nova — é o mesmo retry de sincronização batendo de novo, então precisa
-    // devolver a venda existente em vez de exigir caixa aberto de novo.
+    // ...but replaying a sale that had ALREADY been completed isn't a new
+    // sale — it's the same sync retry hitting again, so it needs to return
+    // the existing sale instead of demanding an open register again.
     const replay = await request(app.getHttpServer()).post('/api/sales').set('Authorization', `Bearer ${tenant.accessToken}`).send(body);
     expect(replay.status).toBe(201);
     expect(replay.body.id).toBe(first.body.id);
@@ -121,7 +121,7 @@ describe('Venda offline — idempotência por clientSaleId (e2e)', () => {
 
     const products = await request(app.getHttpServer()).get('/api/products').set('Authorization', `Bearer ${tenant.accessToken}`);
     const product = products.body.find((p: { id: string }) => p.id === productId);
-    expect(product.stockQuantity).toBe(7); // 10 - 3, uma única vez
+    expect(product.stockQuantity).toBe(7); // 10 - 3, only once
   });
 
   it('vendas diferentes sem clientSaleId nunca colidem entre si (comportamento online de sempre, inalterado)', async () => {

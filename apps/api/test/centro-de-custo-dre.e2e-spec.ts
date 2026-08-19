@@ -78,7 +78,7 @@ describe('Centro de custo e DRE (e2e)', () => {
       amountCents: 10000,
       costCenterId: marketingId,
     });
-    // Conta sem centro de custo — deve cair no bucket "Sem centro de custo".
+    // Entry with no cost center — should fall into the "Sem centro de custo" bucket.
     await createPaidEntry(app, tenant.accessToken, { type: 'payable', description: 'Conta de luz', amountCents: 5000 });
 
     const dre = await request(app.getHttpServer())

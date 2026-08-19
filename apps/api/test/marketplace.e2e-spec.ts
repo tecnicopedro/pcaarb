@@ -148,10 +148,10 @@ describe('Integração de marketplace — canais e sincronização de produto (e
 describe('Integração de marketplace — importação de pedidos (e2e, provider fabricado)', () => {
   let app: INestApplication;
 
-  // Provider de teste que devolve os MESMOS pedidos toda vez que
-  // fetchNewOrders é chamado — simula uma API de pedidos que lista o
-  // histórico recente (não uma fila que esvazia), justamente pra testar que
-  // uma segunda sincronização não reaplica o que já foi importado.
+  // Test provider that returns the SAME orders every time fetchNewOrders is
+  // called — simulates an orders API that lists recent history (not a queue
+  // that drains), specifically to test that a second sync doesn't reapply
+  // what's already been imported.
   const testOrders = [
     {
       externalOrderId: 'order-ok-1',
@@ -222,16 +222,16 @@ describe('Integração de marketplace — importação de pedidos (e2e, provider
     expect(shortStock.status).toBe('needs_attention');
     expect(shortStock.issue).toMatch(/estoque insuficiente/i);
 
-    // Widget começou com 10, o pedido importado consumiu 2 (o de 999 NÃO foi
-    // aplicado, já que o pedido inteiro foi rejeitado) — saldo deve ser 8.
+    // Widget started with 10, the imported order consumed 2 (the one with
+    // 999 was NOT applied, since the whole order was rejected) — balance should be 8.
     const productAfterFirstPull = await request(app.getHttpServer())
       .get('/api/products')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     const widget = productAfterFirstPull.body.find((p: { id: string }) => p.id === productId);
     expect(widget.stockQuantity).toBe(8);
 
-    // Replay: o provider fabricado devolve os MESMOS 3 pedidos de novo — nada
-    // pode ser reaplicado, e o estoque não pode mudar de novo.
+    // Replay: the fake provider returns the SAME 3 orders again — nothing
+    // can be reapplied, and stock cannot change again.
     const secondPull = await request(app.getHttpServer())
       .post(`/api/marketplace/channels/${channel.id}/orders/pull`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);

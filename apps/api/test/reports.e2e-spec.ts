@@ -135,8 +135,8 @@ describe('Relatórios (e2e)', () => {
     expect(ret.status).toBe(201);
     expect(ret.body.totalRefundedCents).toBe(1000);
 
-    // A venda em si segue completed (devolução parcial não cancela) — a
-    // receita reportada é que precisa descontar o que já foi devolvido.
+    // The sale itself stays completed (a partial return doesn't cancel it) —
+    // it's the reported revenue that needs to deduct what's already been returned.
     const updatedSale = await request(app.getHttpServer())
       .get(`/api/sales/${sale.body.id}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`);
@@ -146,13 +146,13 @@ describe('Relatórios (e2e)', () => {
       .get('/api/reports/vendas-resumo')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(summary.body.totalSales).toBe(1);
-    expect(summary.body.totalRevenueCents).toBe(2000); // 3000 - 1000, não 3000
+    expect(summary.body.totalRevenueCents).toBe(2000); // 3000 - 1000, not 3000
 
     const ranking = await request(app.getHttpServer())
       .get('/api/reports/produtos-ranking')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     expect(ranking.body[0].revenueCents).toBe(2000);
-    expect(ranking.body[0].quantitySold).toBe(2); // 3 vendidas - 1 devolvida
+    expect(ranking.body[0].quantitySold).toBe(2); // 3 sold - 1 returned
 
     const sellers = await request(app.getHttpServer())
       .get('/api/reports/vendedores-ranking')
@@ -172,10 +172,10 @@ describe('Relatórios (e2e)', () => {
     const csv = await request(app.getHttpServer())
       .get('/api/reports/exportar/vendas.csv')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
-    // Total exportado continua o valor original da transação (auditável), com
-    // o valor devolvido numa coluna separada — não um número já líquido sem rastro.
+    // The exported total remains the original transaction value (auditable),
+    // with the returned amount in a separate column — not an already-net number with no trail.
     expect(csv.text).toContain(sale.body.id);
-    expect(csv.text).toContain(';30.00;0.00;30.00;10.00;'); // subtotal;desconto;total;valor devolvido
+    expect(csv.text).toContain(';30.00;0.00;30.00;10.00;'); // subtotal;discount;total;returned amount
   });
 
   it('sem vendas no período retorna resumo zerado e listas vazias', async () => {
@@ -222,7 +222,7 @@ describe('Relatórios (e2e)', () => {
     const tenantA = await registerTenant(app, 'reports-bi-iso-a');
     const tenantB = await registerTenant(app, 'reports-bi-iso-b');
 
-    // saldo zerado (default de createTrackedProduct, sem addStock) -> sempre aparece em reposição pra quem tem acesso
+    // zero balance (default of createTrackedProduct, no addStock) -> always shows up in reorder for whoever has access
     await createTrackedProduct(app, tenantA.accessToken, { name: 'Produto A zerado' });
     await createTrackedProduct(app, tenantB.accessToken, { name: 'Produto B abaixo do custo', priceCents: 100, costPriceCents: 900 });
 
@@ -243,17 +243,17 @@ describe('Relatórios (e2e)', () => {
 
     const urgente = await createTrackedProduct(app, tenant.accessToken, { name: 'Urgente', priceCents: 1000 });
     await addStock(app, tenant.accessToken, urgente.id, 35);
-    await sell(app, tenant.accessToken, urgente.id, 30, 1000); // consome 30 do estoque, vende 30 no período
+    await sell(app, tenant.accessToken, urgente.id, 30, 1000); // consumes 30 from stock, sells 30 in the period
 
     const saudavel = await createTrackedProduct(app, tenant.accessToken, { name: 'Saudável', priceCents: 1000 });
     await addStock(app, tenant.accessToken, saudavel.id, 1030);
     await sell(app, tenant.accessToken, saudavel.id, 30, 1000);
 
     const semDados = await createTrackedProduct(app, tenant.accessToken, { name: 'Sem dados, zerado' });
-    // sem entrada de estoque e sem venda — nasce com saldo zero
+    // no stock entry and no sale — born with a zero balance
 
     const nuncaVendido = await createTrackedProduct(app, tenant.accessToken, { name: 'Nunca vendido' });
-    await addStock(app, tenant.accessToken, nuncaVendido.id, 50); // saldo saudável, sem histórico de venda
+    await addStock(app, tenant.accessToken, nuncaVendido.id, 50); // healthy balance, no sales history
 
     const response = await request(app.getHttpServer())
       .get('/api/reports/reposicao')
@@ -262,7 +262,7 @@ describe('Relatórios (e2e)', () => {
     expect(response.status).toBe(200);
     const byId = new Map(response.body.map((item: { productId: string }) => [item.productId, item]));
 
-    expect(byId.has(nuncaVendido.id)).toBe(false); // sem venda e com saldo positivo: sem dado pra sugerir nada
+    expect(byId.has(nuncaVendido.id)).toBe(false); // no sales and a positive balance: no data to suggest anything
 
     const urgenteItem = byId.get(urgente.id);
     expect(urgenteItem).toMatchObject({ stockQuantity: 5, avgDailySales: 1, daysUntilStockout: 5, suggestedReorderQty: 9, needsAttention: true });
@@ -273,7 +273,7 @@ describe('Relatórios (e2e)', () => {
     const semDadosItem = byId.get(semDados.id);
     expect(semDadosItem).toMatchObject({ stockQuantity: 0, avgDailySales: 0, daysUntilStockout: null, suggestedReorderQty: 0, needsAttention: true });
 
-    // mais urgente primeiro
+    // most urgent first
     expect(response.body[0].productId).toBe(urgente.id);
   });
 
@@ -294,7 +294,7 @@ describe('Relatórios (e2e)', () => {
     expect(byId.get(comMargem.id)).toMatchObject({ currentMarginPercent: 30, suggestedPriceCents: 1000, belowCost: false });
     expect(byId.get(abaixoDoCusto.id)).toMatchObject({ currentMarginPercent: -20, suggestedPriceCents: 857, belowCost: true });
 
-    // pior margem primeiro
+    // worst margin first
     expect(response.body[0].productId).toBe(abaixoDoCusto.id);
   });
 
@@ -316,7 +316,7 @@ describe('Relatórios (e2e)', () => {
     expect(body).toContain('Data;Hora;ID da venda;Loja;Vendedor;Cliente;Subtotal;Desconto;Total;Valor devolvido;Formas de pagamento;Status fiscal;Chave de acesso NFC-e');
     expect(body).toContain(sale.body.id);
     expect(body).toContain('Dinheiro: R$ 30.00');
-    // Fiscal é emitido automaticamente (sandbox) ao vender — ver fiscal-pagamento.e2e-spec.ts.
+    // Fiscal document is issued automatically (sandbox) on sale — see fiscal-pagamento.e2e-spec.ts.
     expect(body).toContain('Autorizada');
   });
 

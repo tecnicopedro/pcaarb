@@ -50,7 +50,7 @@ describe('Chaves de API (e2e)', () => {
     expect(created.body.role).toBe('admin');
     expect(created.body.keyPrefix).toBe(created.body.rawKey.slice(0, created.body.keyPrefix.length));
 
-    // A chave crua nunca é persistida — só o hash. Confirma direto no banco.
+    // The raw key is never persisted — only the hash. Confirm directly in the database.
     const [row] = await db.select().from(apiKeys).where(eq(apiKeys.id, created.body.id));
     expect(row).toBeDefined();
     expect(JSON.stringify(row)).not.toContain(created.body.rawKey);
@@ -98,8 +98,8 @@ describe('Chaves de API (e2e)', () => {
     const created = await createApiKey(app, tenant.accessToken, { name: 'Vai expirar', role: 'admin' });
     expect(created.status).toBe(201);
 
-    // Simula o vencimento diretamente no banco (criar já expirada é
-    // rejeitado na validação — ver teste de "data no passado" abaixo).
+    // Simulate expiry directly in the database (creating one already expired
+    // is rejected by validation — see the "past date" test below).
     await db.update(apiKeys).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(apiKeys.id, created.body.id));
 
     const attempt = await request(app.getHttpServer())

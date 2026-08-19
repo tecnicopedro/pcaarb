@@ -13,12 +13,13 @@ import { users } from '../src/database/schema/index';
 import { EMAIL_PROVIDER, type EmailProvider } from '../src/modules/email/email-provider.interface';
 import { registerTenant } from './helpers/register-tenant';
 
-// Este arquivo cria bem mais usuários que os outros specs (RBAC + escopo +
-// isolamento, em vários testes) — passar todos pelo POST /auth/login de
-// verdade estouraria o rate limit de login (5/min, deliberadamente apertado
-// contra força bruta). Assinar o token direto com o mesmo segredo/payload que
-// AuthService.issueTokens usa reproduz exatamente o que login emitiria, sem
-// depender do endpoint (nem do fluxo de senha, que não é o que este arquivo testa).
+// This file creates far more users than the other specs (RBAC + scope +
+// isolation, across several tests) — running all of them through a real
+// POST /auth/login would blow past the login rate limit (5/min, deliberately
+// tight against brute force). Signing the token directly with the same
+// secret/payload that AuthService.issueTokens uses reproduces exactly what
+// login would emit, without depending on the endpoint (or the password flow,
+// which isn't what this file tests).
 async function mintUser(app: INestApplication, db: Database, tenantId: string, role: 'financeiro' | 'operador_caixa' | 'admin') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
   const passwordHash = await bcrypt.hash('SenhaForte123', 12);
@@ -46,12 +47,12 @@ describe('Permissões granulares por usuário (e2e)', () => {
   let db: Database;
 
   beforeAll(async () => {
-    // Este arquivo testa override de permissão, não o envio de e-mail em si
-    // (isso já é coberto em user-invites.e2e-spec.ts) — sem isso, o teste de
-    // convite abaixo dependeria de uma conta Resend real configurada em
-    // RESEND_API_KEY só pra passar, o que quebraria em CI (sem esse segredo)
-    // e é frágil mesmo localmente (rate limit/expiração da chave de terceiro
-    // derrubando um teste que não tem nada a ver com e-mail).
+    // This file tests permission overrides, not the email sending itself
+    // (that's already covered in user-invites.e2e-spec.ts) — without this,
+    // the invite test below would depend on a real Resend account configured
+    // in RESEND_API_KEY just to pass, which would break in CI (with no such
+    // secret) and is fragile even locally (the third-party key's rate
+    // limit/expiration bringing down a test that has nothing to do with email).
     const fakeEmailProvider: EmailProvider = { async sendInvite() {}, async sendPasswordReset() {} };
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_PROVIDER)
@@ -88,7 +89,7 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .set('Authorization', `Bearer ${cashier.accessToken}`);
     expect(after.status).toBe(200);
 
-    // Resto do papel de operador de caixa continua intacto — não virou outro papel.
+    // The rest of the operador_caixa role remains intact — it hasn't become a different role.
     const stillBlocked = await request(app.getHttpServer())
       .get('/api/finance-entries')
       .set('Authorization', `Bearer ${cashier.accessToken}`);
@@ -115,7 +116,7 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .set('Authorization', `Bearer ${admin.accessToken}`);
     expect(after.status).toBe(403);
 
-    // Resto do papel de admin continua intacto.
+    // The rest of the admin role remains intact.
     const stillAllowed = await request(app.getHttpServer())
       .get('/api/products')
       .set('Authorization', `Bearer ${admin.accessToken}`);
@@ -215,7 +216,7 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .set('Authorization', `Bearer ${tenantA.accessToken}`)
       .send({ subject: 'Report', action: 'read', effect: 'allow' });
 
-    // Tenant B não enxerga (nem consegue gerenciar) usuário de outro tenant.
+    // Tenant B can't see (or manage) another tenant's user.
     const crossTenantList = await request(app.getHttpServer())
       .get(`/api/users/${cashierA.id}/permission-overrides`)
       .set('Authorization', `Bearer ${tenantB.accessToken}`);
@@ -267,11 +268,12 @@ describe('Permissões granulares por usuário (e2e)', () => {
       .send({ subject: 'UserAccess', action: 'update', effect: 'allow' });
     expect(attemptUserAccess.status).toBe(400);
 
-    // Achado de revisão de segurança (2026-08-18): 'Integration' guarda
-    // POST /api-keys, que minta uma credencial durável com o role pedido.
-    // Um override pontual de 'Integration' (que soa inócuo, tipo "deixa
-    // configurar a integração do marketplace") virava caminho pra um
-    // financeiro/operador_caixa mintar uma chave de API com role:'admin'.
+    // Security review finding (2026-08-18): 'Integration' guards
+    // POST /api-keys, which mints a durable credential with the requested
+    // role. A seemingly narrow override on 'Integration' (which sounds
+    // harmless, like "let them configure the marketplace integration")
+    // turned into a path for a financeiro/operador_caixa to mint an API key
+    // with role:'admin'.
     const attemptIntegration = await request(app.getHttpServer())
       .post(`/api/users/${cashier.id}/permission-overrides`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
@@ -283,28 +285,28 @@ describe('Permissões granulares por usuário (e2e)', () => {
     const tenant = await registerTenant(app, 'perm-escalonamento');
     const cashier = await mintUser(app, db, tenant.tenantId, 'operador_caixa');
 
-    // Admin concede algo aparentemente pontual: update:User.
+    // Admin grants something that looks narrow: update:User.
     const grant = await request(app.getHttpServer())
       .post(`/api/users/${cashier.id}/permission-overrides`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
       .send({ subject: 'User', action: 'update', effect: 'allow' });
     expect(grant.status).toBe(201);
 
-    // Não destrava se auto-promover a admin...
+    // Doesn't unlock self-promoting to admin...
     const escalateRole = await request(app.getHttpServer())
       .patch(`/api/users/${cashier.id}/role`)
       .set('Authorization', `Bearer ${cashier.accessToken}`)
       .send({ role: 'admin' });
     expect(escalateRole.status).toBe(403);
 
-    // ...nem convidar um novo usuário já como admin...
+    // ...nor inviting a new user already as admin...
     const escalateInvite = await request(app.getHttpServer())
       .post('/api/users/invite')
       .set('Authorization', `Bearer ${cashier.accessToken}`)
       .send({ email: `escalonamento-${Date.now()}@pcaarb.test`, role: 'admin' });
     expect(escalateInvite.status).toBe(403);
 
-    // ...nem gerenciar overrides de outros usuários (meta-escalonamento).
+    // ...nor managing other users' overrides (meta-escalation).
     const escalateOverrides = await request(app.getHttpServer())
       .post(`/api/users/${cashier.id}/permission-overrides`)
       .set('Authorization', `Bearer ${cashier.accessToken}`)

@@ -9,16 +9,17 @@ import { products } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
 
 /**
- * Regression test para o achado crítico da revisão de segurança de 2026-08-17:
- * a conexão de runtime da API rodava com uma role SUPERUSER (BYPASSRLS
- * implícito), então TODAS as policies de RLS eram ignoradas — o isolamento
- * entre tenants dependia inteiramente dos filtros `WHERE tenant_id = ...`
- * escritos à mão em cada service, sem nenhuma rede de segurança no banco.
+ * Regression test for the critical finding from the 2026-08-17 security
+ * review: the API's runtime connection was running with a SUPERUSER role
+ * (implicit BYPASSRLS), so ALL RLS policies were being ignored — tenant
+ * isolation relied entirely on the `WHERE tenant_id = ...` filters written by
+ * hand in each service, with no safety net at all in the database.
  *
- * Este teste não passa pela API/services (que já filtram corretamente) —
- * ele prova a proteção no nível da conexão com o banco: mesmo uma query
- * "esquecida" sem filtro de tenant deve voltar vazia, porque a role de
- * runtime (`pcaarb_app`, migration 0011) não tem privilégio para ignorar RLS.
+ * This test doesn't go through the API/services (which already filter
+ * correctly) — it proves the protection at the database connection level:
+ * even a "forgotten" query with no tenant filter must come back empty,
+ * because the runtime role (`pcaarb_app`, migration 0011) has no privilege
+ * to bypass RLS.
  */
 describe('Segurança do banco — privilégio da role de runtime (e2e)', () => {
   let app: INestApplication;
@@ -58,13 +59,14 @@ describe('Segurança do banco — privilégio da role de runtime (e2e)', () => {
       .set('Authorization', `Bearer ${tenantB.accessToken}`)
       .send({ name: 'Produto do tenant B', priceCents: 100 });
 
-    // Query crua, direto na conexão da API, SEM passar por runWithTenant —
-    // simula um bug de "esqueci o WHERE tenant_id". Com RLS realmente ativo
-    // para essa role, isto nunca devolve linha de nenhum tenant: ou volta
-    // vazio (conexão nova, `app.tenant_id` nunca setado ⇒ NULL na policy),
-    // ou a própria query falha (conexão reciclada do pool, `app.tenant_id`
-    // reverteu para string vazia após o fim do runWithTenant anterior ⇒
-    // cast pra uuid rejeita). As duas são falha fechada — nenhuma vaza dado.
+    // Raw query, straight on the API connection, WITHOUT going through
+    // runWithTenant — simulates a "forgot the WHERE tenant_id" bug. With RLS
+    // truly active for this role, this must never return a row from any
+    // tenant: either it comes back empty (new connection, `app.tenant_id`
+    // never set ⇒ NULL in the policy), or the query itself fails (pooled
+    // connection reused, `app.tenant_id` reverted to an empty string after
+    // the previous runWithTenant ended ⇒ the cast to uuid is rejected). Both
+    // are fail-closed — neither leaks data.
     let rows: unknown[] = [];
     try {
       rows = await db.select().from(products);

@@ -14,9 +14,9 @@ function tokenFromInviteUrl(inviteUrl: string): string {
   return new URL(inviteUrl).searchParams.get('token') as string;
 }
 
-// E-mail é único globalmente entre tenants (users.email), e os testes e2e
-// rodam contra Postgres real sem reset entre execuções — precisa ser único
-// a cada rodada, mesmo padrão de registerTenant().
+// Email is globally unique across tenants (users.email), and the e2e tests
+// run against a real Postgres with no reset between runs — needs to be
+// unique on every run, same pattern as registerTenant().
 function uniqueEmail(label: string): string {
   return `${label}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
 }
@@ -252,8 +252,8 @@ describe('Convite e gestão de usuários (e2e)', () => {
     });
     const adminAccessToken = acceptAdmin.body.accessToken as string;
 
-    // Neste ponto o tenant tem 2 owners — a checagem de "último owner" por si
-    // só deixaria isso passar. O bloqueio precisa vir de "só owner mexe em owner".
+    // At this point the tenant has 2 owners — the "last owner" check alone
+    // would let this through. The block has to come from "only an owner touches an owner".
     const demote = await request(app.getHttpServer())
       .patch(`/api/users/${owner.userId}/role`)
       .set('Authorization', `Bearer ${adminAccessToken}`)
@@ -275,8 +275,8 @@ describe('Convite e gestão de usuários (e2e)', () => {
       name: 'Será Rebaixado',
       password: 'SenhaForte123',
     });
-    // Access token emitido enquanto o usuário ainda era owner — o claim de
-    // papel dele fica desatualizado assim que o primeiro owner o rebaixar.
+    // Access token issued while the user was still owner — their role claim
+    // becomes stale as soon as the first owner demotes them.
     const staleOwnerAccessToken = acceptSecondOwner.body.accessToken as string;
     const staleOwnerId = JSON.parse(Buffer.from(staleOwnerAccessToken.split('.')[1], 'base64').toString()).sub;
 

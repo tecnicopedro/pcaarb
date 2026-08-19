@@ -12,8 +12,9 @@ import { users } from '../src/database/schema/index';
 import { registerTenant } from './helpers/register-tenant';
 import { openCashSession } from './helpers/open-cash-session';
 
-// Mesmo helper de fidelidade.e2e-spec.ts / permissoes-granulares.e2e-spec.ts:
-// cria o usuário direto no banco, sem depender do fluxo de convite/e-mail.
+// Same helper as fidelidade.e2e-spec.ts / permissoes-granulares.e2e-spec.ts:
+// creates the user directly in the database, without relying on the
+// invite/email flow.
 async function mintUser(app: INestApplication, db: Database, tenantId: string, role: 'operador_caixa' | 'financeiro') {
   const email = `${role}-${Date.now()}-${Math.random().toString(36).slice(2)}@pcaarb.test`;
   const passwordHash = await bcrypt.hash('SenhaForte123', 12);
@@ -91,7 +92,7 @@ describe('Comissão de vendedores (e2e)', () => {
     expect(report.body.porVendedor[0].sellerId).toBe(tenant.userId);
     expect(report.body.porVendedor[0].revenueCents).toBe(10_000);
     expect(report.body.porVendedor[0].rateBps).toBe(500);
-    expect(report.body.porVendedor[0].commissionCents).toBe(500); // 5% de 10000
+    expect(report.body.porVendedor[0].commissionCents).toBe(500); // 5% of 10000
     expect(report.body.totalCommissionCents).toBe(500);
   });
 
@@ -105,12 +106,12 @@ describe('Comissão de vendedores (e2e)', () => {
     await request(app.getHttpServer())
       .patch('/api/commissions/settings')
       .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ defaultRateBps: 500 }); // 5% pro dono
+      .send({ defaultRateBps: 500 }); // 5% for the owner
 
     const setOverride = await request(app.getHttpServer())
       .put(`/api/commissions/rates/${cashier.id}`)
       .set('Authorization', `Bearer ${tenant.accessToken}`)
-      .send({ rateBps: 1000 }); // 10% pro caixa
+      .send({ rateBps: 1000 }); // 10% for the cashier
     expect(setOverride.status).toBe(200);
     expect(setOverride.body.rateBps).toBe(1000);
 
@@ -121,8 +122,8 @@ describe('Comissão de vendedores (e2e)', () => {
       .get('/api/reports/comissoes')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     const bySeller = new Map(report.body.porVendedor.map((item: { sellerId: string }) => [item.sellerId, item]));
-    expect((bySeller.get(tenant.userId) as { commissionCents: number }).commissionCents).toBe(500); // 5% de 10000
-    expect((bySeller.get(cashier.id) as { commissionCents: number }).commissionCents).toBe(1000); // 10% de 10000
+    expect((bySeller.get(tenant.userId) as { commissionCents: number }).commissionCents).toBe(500); // 5% of 10000
+    expect((bySeller.get(cashier.id) as { commissionCents: number }).commissionCents).toBe(1000); // 10% of 10000
     expect(report.body.totalCommissionCents).toBe(1500);
 
     const rates = await request(app.getHttpServer())
@@ -141,7 +142,7 @@ describe('Comissão de vendedores (e2e)', () => {
       .get('/api/reports/comissoes')
       .set('Authorization', `Bearer ${tenant.accessToken}`);
     const bySellerAfter = new Map(reportAfterRemoval.body.porVendedor.map((item: { sellerId: string }) => [item.sellerId, item]));
-    expect((bySellerAfter.get(cashier.id) as { commissionCents: number }).commissionCents).toBe(500); // voltou pro padrão 5%
+    expect((bySellerAfter.get(cashier.id) as { commissionCents: number }).commissionCents).toBe(500); // back to the 5% default
   });
 
   it('operador de caixa lê o relatório mas não configura taxas; financeiro idem', async () => {
@@ -152,7 +153,7 @@ describe('Comissão de vendedores (e2e)', () => {
     const cashierReadsSettings = await request(app.getHttpServer())
       .get('/api/commissions/settings')
       .set('Authorization', `Bearer ${cashier.accessToken}`);
-    expect(cashierReadsSettings.status).toBe(403); // operador_caixa não tem 'read' em Report
+    expect(cashierReadsSettings.status).toBe(403); // operador_caixa doesn't have 'read' on Report
 
     const financeiroReadsSettings = await request(app.getHttpServer())
       .get('/api/commissions/settings')
@@ -163,7 +164,7 @@ describe('Comissão de vendedores (e2e)', () => {
       .patch('/api/commissions/settings')
       .set('Authorization', `Bearer ${financeiro.accessToken}`)
       .send({ defaultRateBps: 1000 });
-    expect(financeiroUpdatesSettings.status).toBe(403); // financeiro só tem 'read' em Report, não 'manage'
+    expect(financeiroUpdatesSettings.status).toBe(403); // financeiro only has 'read' on Report, not 'manage'
 
     const ownerUpdatesSettings = await request(app.getHttpServer())
       .patch('/api/commissions/settings')
@@ -193,12 +194,12 @@ describe('Comissão de vendedores (e2e)', () => {
     const tenantBSettings = await request(app.getHttpServer())
       .get('/api/commissions/settings')
       .set('Authorization', `Bearer ${tenantB.accessToken}`);
-    expect(tenantBSettings.body.defaultRateBps).toBe(0); // não afetado pela config do tenant A
+    expect(tenantBSettings.body.defaultRateBps).toBe(0); // not affected by tenant A's config
 
     const crossTenantOverride = await request(app.getHttpServer())
       .put(`/api/commissions/rates/${tenantA.userId}`)
       .set('Authorization', `Bearer ${tenantB.accessToken}`)
       .send({ rateBps: 100 });
-    expect(crossTenantOverride.status).toBe(404); // vendedor do tenant A não existe na visão do tenant B
+    expect(crossTenantOverride.status).toBe(404); // tenant A's seller doesn't exist from tenant B's view
   });
 });
