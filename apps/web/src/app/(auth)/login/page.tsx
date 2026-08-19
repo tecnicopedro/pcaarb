@@ -57,9 +57,14 @@ export default function LoginPage() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="password" className="text-sm font-medium">
-            Senha
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium">
+              Senha
+            </label>
+            <Link href="/esqueci-senha" className="text-sm text-accent hover:underline">
+              Esqueci minha senha
+            </Link>
+          </div>
           <Input id="password" type="password" autoComplete="current-password" {...register('password')} />
           {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
         </div>

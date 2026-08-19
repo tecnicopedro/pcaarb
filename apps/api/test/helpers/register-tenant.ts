@@ -20,7 +20,10 @@ export async function registerTenant(app: INestApplication, label: string) {
   );
   return {
     accessToken: response.body.accessToken as string,
+    refreshToken: response.body.refreshToken as string,
     tenantId: accessTokenPayload.tenantId as string,
     userId: accessTokenPayload.sub as string,
+    email,
+    password: 'SenhaForte123',
   };
 }

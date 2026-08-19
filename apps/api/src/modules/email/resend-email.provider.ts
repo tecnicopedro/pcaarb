@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import type { Env } from '../../config/env.validation';
-import type { EmailProvider, SendInviteEmailParams } from './email-provider.interface';
+import type { EmailProvider, SendInviteEmailParams, SendPasswordResetEmailParams } from './email-provider.interface';
 
 // inviterName/companyName vêm de texto livre do usuário (nome no cadastro,
 // nome da empresa) — sem escape, dá pra injetar HTML no e-mail de convite.
@@ -42,6 +42,26 @@ export class ResendEmailProvider implements EmailProvider {
     });
     if (error) {
       throw new Error(`Falha ao enviar e-mail de convite via Resend: ${error.message}`);
+    }
+  }
+
+  // resetUrl é montado só a partir de CORS_ORIGIN (config) + id/token gerados
+  // no servidor — nenhum texto livre do usuário entra aqui, então não precisa
+  // do escapeHtml usado em sendInvite (inviterName/companyName).
+  async sendPasswordReset(params: SendPasswordResetEmailParams): Promise<void> {
+    const { error } = await this.client.emails.send({
+      from: this.fromEmail,
+      to: params.to,
+      subject: 'Redefinir sua senha do PCAARB',
+      html: `
+        <p>Olá,</p>
+        <p>Recebemos um pedido para redefinir a senha da sua conta no PCAARB.</p>
+        <p><a href="${params.resetUrl}">Clique aqui para escolher uma nova senha</a></p>
+        <p>Este link expira em 1 hora. Se você não pediu essa redefinição, pode ignorar este e-mail — sua senha continua a mesma.</p>
+      `,
+    });
+    if (error) {
+      throw new Error(`Falha ao enviar e-mail de redefinição de senha via Resend: ${error.message}`);
     }
   }
 }

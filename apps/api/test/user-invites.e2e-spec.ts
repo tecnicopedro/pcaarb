@@ -31,6 +31,7 @@ describe('Convite e gestão de usuários (e2e)', () => {
       async sendInvite(params) {
         lastInvite = params;
       },
+      async sendPasswordReset() {},
     };
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_PROVIDER)
@@ -325,6 +326,7 @@ describe('Convite — provedor de e-mail indisponível (e2e)', () => {
       async sendInvite() {
         throw new Error('Resend fora do ar (simulado)');
       },
+      async sendPasswordReset() {},
     };
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_PROVIDER)

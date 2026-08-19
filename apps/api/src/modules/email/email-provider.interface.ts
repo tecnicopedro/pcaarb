@@ -8,6 +8,11 @@ export interface SendInviteEmailParams {
   inviteUrl: string;
 }
 
+export interface SendPasswordResetEmailParams {
+  to: string;
+  resetUrl: string;
+}
+
 /**
  * Abstração de envio de e-mail, mesmo padrão de PaymentProvider/FiscalProvider
  * (ver docs/03): o resto da aplicação fala com essa interface, nunca com o
@@ -15,4 +20,5 @@ export interface SendInviteEmailParams {
  */
 export interface EmailProvider {
   sendInvite(params: SendInviteEmailParams): Promise<void>;
+  sendPasswordReset(params: SendPasswordResetEmailParams): Promise<void>;
 }

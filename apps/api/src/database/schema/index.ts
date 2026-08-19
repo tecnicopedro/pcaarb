@@ -2,6 +2,7 @@ export * from './tenants.schema';
 export * from './users.schema';
 export * from './refresh-tokens.schema';
 export * from './user-invites.schema';
+export * from './password-reset-tokens.schema';
 export * from './categories.schema';
 export * from './products.schema';
 export * from './customers.schema';

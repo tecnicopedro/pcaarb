@@ -52,7 +52,7 @@ describe('Permissões granulares por usuário (e2e)', () => {
     // RESEND_API_KEY só pra passar, o que quebraria em CI (sem esse segredo)
     // e é frágil mesmo localmente (rate limit/expiração da chave de terceiro
     // derrubando um teste que não tem nada a ver com e-mail).
-    const fakeEmailProvider: EmailProvider = { async sendInvite() {} };
+    const fakeEmailProvider: EmailProvider = { async sendInvite() {}, async sendPasswordReset() {} };
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(EMAIL_PROVIDER)
       .useValue(fakeEmailProvider)

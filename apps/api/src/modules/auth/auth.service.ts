@@ -1,4 +1,5 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+import { ConflictException, GoneException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 // As quatro classes abaixo são importadas por valor (não `import type`) de
 // propósito: são injetadas no construtor e o NestJS as resolve via
 // emitDecoratorMetadata, que só emite o tipo real para imports de valor.
@@ -9,11 +10,13 @@ import { eq } from 'drizzle-orm';
 import type { AcceptInviteInput, AuthTokens, LoginInput, RegisterTenantInput } from '@pcaarb/shared';
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
-import { refreshTokens, type UserRow } from '../../database/schema/index';
+import { passwordResetTokens, refreshTokens, users, type UserRow } from '../../database/schema/index';
+import { EMAIL_PROVIDER, type EmailProvider } from '../email/email-provider.interface';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 
 const BCRYPT_ROUNDS = 12;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 // Hash fixo gerado uma vez no boot (não por request) — comparado quando o
 // e-mail não existe, pra login nunca vazar por tempo de resposta se um
@@ -37,6 +40,7 @@ export class AuthService {
     private readonly config: ConfigService<Env, true>,
     private readonly tenantsService: TenantsService,
     private readonly usersService: UsersService,
+    @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
   ) {}
 
   async register(input: RegisterTenantInput): Promise<AuthTokens> {
@@ -55,11 +59,89 @@ export class AuthService {
     // existe, contra o dummy se não. Nunca pular esse passo condicionalmente
     // (ver DUMMY_PASSWORD_HASH acima).
     const passwordMatches = await bcrypt.compare(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+
+    // Checado ANTES da senha decidir a resposta, com a MESMA mensagem
+    // esteja a senha certa ou errada: senão a mensagem de "bloqueada" só
+    // aparecer quando a senha bate vira um oráculo de acerto de senha
+    // utilizável mesmo com a conta bloqueada (achado de revisão de
+    // segurança, 2026-08-19) — um atacante com uma credencial vazada
+    // bloqueava a conta de propósito (5 tentativas erradas) e depois
+    // mandava a senha candidata: "bloqueada" em vez de "inválidos"
+    // confirmava a senha certa, sem nunca completar um login de verdade
+    // (e sem gerar nenhum evento de login bem-sucedido pra alguém notar).
+    // Não é enumeração de e-mail nova: só dispara pra contas que existem,
+    // mesmo racional já aceito antes desta correção.
+    if (user?.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Conta temporariamente bloqueada por muitas tentativas de login — tente novamente mais tarde');
+    }
+
     if (!user || !passwordMatches) {
+      if (user) {
+        await this.usersService.registerFailedLogin(user);
+      }
       throw new UnauthorizedException('E-mail ou senha inválidos');
     }
 
+    if (user.failedLoginAttempts > 0) {
+      await this.usersService.clearLoginLockout(user.id);
+    }
+
     return this.issueTokens(user);
+  }
+
+  // Sempre "sucede" do ponto de vista do chamador, e-mail exista ou não —
+  // mesma disciplina anti-enumeração do login. O hash bcrypt do token roda
+  // mesmo sem usuário, igualando o custo de CPU; o tempo de envio real do
+  // e-mail (rede, fora do nosso controle) é um resíduo aceito, mesmo
+  // raciocínio já documentado para o token de convite: não dá pra fingir
+  // latência de rede de um provedor de terceiro sem piorar a experiência de
+  // quem legitimamente esqueceu a senha.
+  async requestPasswordReset(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(rawToken, BCRYPT_ROUNDS);
+
+    if (!user || user.isServiceAccount) {
+      return;
+    }
+
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    // Mesmo racional do convite: token sem e-mail entregue não serve pra
+    // nada, então o registro é desfeito junto se o envio falhar.
+    await this.db.transaction(async (tx) => {
+      const [tokenRow] = await tx.insert(passwordResetTokens).values({ userId: user.id, tokenHash, expiresAt }).returning();
+      if (!tokenRow) {
+        throw new Error('Falha ao criar token de redefinição de senha');
+      }
+      const resetUrl = `${this.config.get('CORS_ORIGIN', { infer: true })}/redefinir-senha?id=${tokenRow.id}&token=${rawToken}`;
+      await this.emailProvider.sendPasswordReset({ to: user.email, resetUrl });
+    });
+  }
+
+  async resetPassword(id: string, token: string, newPassword: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const [tokenRow] = await tx.select().from(passwordResetTokens).where(eq(passwordResetTokens.id, id)).limit(1);
+      if (!tokenRow) {
+        throw new UnauthorizedException('Link de redefinição inválido');
+      }
+      if (tokenRow.usedAt) {
+        throw new ConflictException('Este link já foi utilizado');
+      }
+      if (tokenRow.expiresAt < new Date()) {
+        throw new GoneException('Este link expirou — peça uma nova redefinição');
+      }
+      const tokenMatches = await bcrypt.compare(token, tokenRow.tokenHash);
+      if (!tokenMatches) {
+        throw new UnauthorizedException('Link de redefinição inválido');
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+      await tx.update(users).set({ passwordHash, failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, tokenRow.userId));
+      await tx.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, tokenRow.id));
+      // Troca de senha não deve deixar sessões antigas (possivelmente
+      // comprometidas — é o cenário que motiva um reset) continuarem válidas.
+      await tx.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, tokenRow.userId));
+    });
   }
 
   async refresh(rawToken: string): Promise<AuthTokens> {

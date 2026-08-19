@@ -21,6 +21,8 @@ import { EMAIL_PROVIDER, type EmailProvider } from '../email/email-provider.inte
 
 const BCRYPT_ROUNDS = 12;
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const LOGIN_LOCKOUT_THRESHOLD = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class UsersService {
@@ -38,6 +40,22 @@ export class UsersService {
   async findById(id: string): Promise<UserRow | undefined> {
     const [user] = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
     return user;
+  }
+
+  // Chamado pelo AuthService a cada tentativa de login com senha errada.
+  // Ao atingir o limiar, bloqueia a conta por LOGIN_LOCKOUT_MS a partir de
+  // AGORA — continuar tentando enquanto já bloqueada só estende a janela,
+  // não desbloqueia mais cedo.
+  async registerFailedLogin(user: UserRow): Promise<void> {
+    const attempts = user.failedLoginAttempts + 1;
+    const lockedUntil = attempts >= LOGIN_LOCKOUT_THRESHOLD ? new Date(Date.now() + LOGIN_LOCKOUT_MS) : user.lockedUntil;
+    await this.db.update(users).set({ failedLoginAttempts: attempts, lockedUntil }).where(eq(users.id, user.id));
+  }
+
+  // Chamado em todo login bem-sucedido — zera o contador pra não acumular
+  // "quase bloqueios" de tentativas erradas espaçadas ao longo do tempo.
+  async clearLoginLockout(userId: string): Promise<void> {
+    await this.db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, userId));
   }
 
   async create(data: NewUserRow): Promise<UserRow> {

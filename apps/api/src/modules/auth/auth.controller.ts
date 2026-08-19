@@ -3,11 +3,15 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
   acceptInviteSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerTenantSchema,
+  resetPasswordSchema,
   type AcceptInviteInput,
+  type ForgotPasswordInput,
   type LoginInput,
   type RegisterTenantInput,
+  type ResetPasswordInput,
 } from '@pcaarb/shared';
 import { z } from 'zod';
 import { Public } from '../../common/decorators/public.decorator';
@@ -66,5 +70,25 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(acceptInviteSchema))
   acceptInvite(@Body() body: AcceptInviteInput) {
     return this.authService.acceptInvite(body);
+  }
+
+  @Public()
+  // Mesmo limite apertado do login: este endpoint é o ponto de partida de um
+  // ataque de enumeração de e-mail por volume, mesmo respondendo sempre 204.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UsePipes(new ZodValidationPipe(forgotPasswordSchema))
+  async forgotPassword(@Body() body: ForgotPasswordInput) {
+    await this.authService.requestPasswordReset(body.email);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UsePipes(new ZodValidationPipe(resetPasswordSchema))
+  async resetPassword(@Body() body: ResetPasswordInput) {
+    await this.authService.resetPassword(body.id, body.token, body.password);
   }
 }
