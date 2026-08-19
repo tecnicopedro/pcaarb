@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { PaymentChargeParams, PaymentChargeResult, PaymentProvider } from './payment-provider.interface';
+import type {
+  PaymentChargeParams,
+  PaymentChargeResult,
+  PaymentProvider,
+  PaymentRefundParams,
+  PaymentRefundResult,
+} from './payment-provider.interface';
 
 /**
  * Adapter de sandbox: sempre aprova. Fica no lugar do adapter real
@@ -14,6 +20,13 @@ export class MockPaymentProvider implements PaymentProvider {
     return {
       approved: true,
       providerTransactionId: `mock_${params.method}_${randomUUID()}`,
+    };
+  }
+
+  async refund(params: PaymentRefundParams): Promise<PaymentRefundResult> {
+    return {
+      approved: true,
+      providerRefundId: `mock_refund_${params.method}_${randomUUID()}`,
     };
   }
 }

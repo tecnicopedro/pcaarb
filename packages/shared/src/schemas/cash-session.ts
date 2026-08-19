@@ -30,7 +30,10 @@ export const closeCashSessionSchema = z.object({
 
 export type CloseCashSessionInput = z.infer<typeof closeCashSessionSchema>;
 
-export const cashMovementTypeSchema = z.enum(['sangria', 'suprimento']);
+// 'estorno' só é criado internamente por SaleReturnsService (reembolso em
+// dinheiro de uma devolução) — nunca pelo endpoint manual de movimentação,
+// por isso não entra em createCashMovementSchema abaixo.
+export const cashMovementTypeSchema = z.enum(['sangria', 'suprimento', 'estorno']);
 
 export const cashMovementSchema = z.object({
   id: z.string().uuid(),
@@ -45,8 +48,10 @@ export const cashMovementSchema = z.object({
 
 export type CashMovement = z.infer<typeof cashMovementSchema>;
 
+export const manualCashMovementTypeSchema = z.enum(['sangria', 'suprimento']);
+
 export const createCashMovementSchema = z.object({
-  type: cashMovementTypeSchema,
+  type: manualCashMovementTypeSchema,
   amountCents: z.number().int().positive('Valor precisa ser maior que zero'),
   reason: z.string().max(200).nullable().optional(),
 });

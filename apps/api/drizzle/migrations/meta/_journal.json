@@ -218,6 +218,20 @@
       "when": 1787061333144,
       "tag": "0030_majestic_peter_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1787105368792,
+      "tag": "0031_military_black_panther",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1787105368793,
+      "tag": "0032_enable_rls_devolucoes",
+      "breakpoints": true
     }
   ]
 }

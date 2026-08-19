@@ -121,23 +121,49 @@ export class CashSessionsService {
       throw new ConflictException('Não é possível registrar movimentação em caixa fechado');
     }
 
-    return runWithTenant(this.db, tenantId, async (tx) => {
-      const [movement] = await tx
-        .insert(cashMovements)
-        .values({
-          tenantId,
-          cashSessionId,
-          type: input.type,
-          amountCents: input.amountCents,
-          reason: input.reason ?? null,
-          createdBy: userId,
-        })
-        .returning();
-      if (!movement) {
-        throw new Error('Falha ao registrar movimentação de caixa');
-      }
-      return movement;
-    });
+    return runWithTenant(this.db, tenantId, (tx) =>
+      this.addMovementTx(tx, {
+        tenantId,
+        userId,
+        cashSessionId,
+        type: input.type,
+        amountCents: input.amountCents,
+        reason: input.reason ?? null,
+      }),
+    );
+  }
+
+  // Usado pelo SaleReturnsService dentro da própria transação da devolução,
+  // pra reembolso em dinheiro e reversão de estoque/pontos/fiscal serem
+  // atômicos (ou tudo, ou nada). Assume que o chamador já validou que a
+  // sessão está aberta antes de entrar na transação — mesmo racional de
+  // StockService.applyMovement vs. createMovement.
+  async addMovementTx(
+    tx: Database,
+    params: {
+      tenantId: string;
+      userId: string;
+      cashSessionId: string;
+      type: 'sangria' | 'suprimento' | 'estorno';
+      amountCents: number;
+      reason: string | null;
+    },
+  ): Promise<CashMovementRow> {
+    const [movement] = await tx
+      .insert(cashMovements)
+      .values({
+        tenantId: params.tenantId,
+        cashSessionId: params.cashSessionId,
+        type: params.type,
+        amountCents: params.amountCents,
+        reason: params.reason,
+        createdBy: params.userId,
+      })
+      .returning();
+    if (!movement) {
+      throw new Error('Falha ao registrar movimentação de caixa');
+    }
+    return movement;
   }
 
   async listMovements(tenantId: string, cashSessionId: string): Promise<CashMovementRow[]> {

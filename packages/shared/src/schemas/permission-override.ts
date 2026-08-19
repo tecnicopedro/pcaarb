@@ -23,6 +23,7 @@ export type PermissionAction = z.infer<typeof permissionActionSchema>;
 // excluir 'UserAccess' acima; mesma correção.
 export const permissionSubjectSchema = z.enum([
   'Sale',
+  'SaleReturn',
   'CashSession',
   'Product',
   'Category',

@@ -6,6 +6,7 @@ export const fiscalDocumentStatusEnum = pgEnum('fiscal_document_status', [
   'pending',
   'authorized',
   'rejected',
+  'canceled',
 ]);
 
 export const fiscalDocuments = pgTable(

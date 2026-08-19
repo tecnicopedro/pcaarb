@@ -3,7 +3,14 @@ import { and, eq } from 'drizzle-orm';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { runWithTenant } from '../../database/tenant-context';
 import { fiscalDocuments, sales, saleItems, type FiscalDocumentRow } from '../../database/schema/index';
-import { FISCAL_PROVIDER, type FiscalIssueParams, type FiscalIssueResult, type FiscalProvider } from './fiscal-provider.interface';
+import {
+  FISCAL_PROVIDER,
+  type FiscalCancelParams,
+  type FiscalCancelResult,
+  type FiscalIssueParams,
+  type FiscalIssueResult,
+  type FiscalProvider,
+} from './fiscal-provider.interface';
 
 @Injectable()
 export class FiscalService {
@@ -85,6 +92,47 @@ export class FiscalService {
       }
       return updated;
     });
+  }
+
+  // Usado pelo SaleReturnsService dentro da própria transação da devolução,
+  // pra cancelamento fiscal e reversão de estoque/pontos/caixa serem
+  // atômicos (ou tudo, ou nada). Só tenta cancelar quando o documento existe
+  // e está autorizado — pendente/rejeitado não tem o que cancelar na SEFAZ.
+  async cancelForSale(
+    tx: Database,
+    params: { tenantId: string; saleId: string },
+  ): Promise<{ canceled: boolean; rejectionReason?: string; fiscalDocument: FiscalDocumentRow | null }> {
+    const [doc] = await tx
+      .select()
+      .from(fiscalDocuments)
+      .where(and(eq(fiscalDocuments.saleId, params.saleId), eq(fiscalDocuments.tenantId, params.tenantId)))
+      .limit(1);
+    if (!doc || doc.status !== 'authorized' || !doc.accessKey) {
+      return { canceled: false, fiscalDocument: doc ?? null };
+    }
+
+    const result = await this.callCancelProvider({ tenantId: params.tenantId, saleId: params.saleId, accessKey: doc.accessKey });
+    if (!result.canceled) {
+      return { canceled: false, rejectionReason: result.rejectionReason, fiscalDocument: doc };
+    }
+
+    const [updated] = await tx
+      .update(fiscalDocuments)
+      .set({ status: 'canceled', updatedAt: new Date() })
+      .where(eq(fiscalDocuments.id, doc.id))
+      .returning();
+    return { canceled: true, fiscalDocument: updated ?? doc };
+  }
+
+  private async callCancelProvider(params: FiscalCancelParams): Promise<FiscalCancelResult> {
+    try {
+      return await this.provider.cancelNFCe(params);
+    } catch {
+      return {
+        canceled: false,
+        rejectionReason: 'Falha de comunicação com o provedor fiscal — tente cancelar novamente em instantes',
+      };
+    }
   }
 
   private async callProvider(params: FiscalIssueParams): Promise<FiscalIssueResult> {

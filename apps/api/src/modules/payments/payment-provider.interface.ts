@@ -15,6 +15,20 @@ export interface PaymentChargeResult {
   declineReason?: string;
 }
 
+export interface PaymentRefundParams {
+  tenantId: string;
+  saleId: string;
+  method: Exclude<PaymentMethod, 'dinheiro'>;
+  amountCents: number;
+  providerTransactionId: string;
+}
+
+export interface PaymentRefundResult {
+  approved: boolean;
+  providerRefundId: string;
+  declineReason?: string;
+}
+
 /**
  * Interface do gateway de pagamento (cartão/Pix) — ver docs/03. O resto do
  * sistema fala só com esta interface; trocar de gateway (Pagar.me, Mercado
@@ -22,4 +36,5 @@ export interface PaymentChargeResult {
  */
 export interface PaymentProvider {
   charge(params: PaymentChargeParams): Promise<PaymentChargeResult>;
+  refund(params: PaymentRefundParams): Promise<PaymentRefundResult>;
 }

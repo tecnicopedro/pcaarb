@@ -21,6 +21,17 @@ export interface FiscalIssueResult {
   rejectionReason?: string;
 }
 
+export interface FiscalCancelParams {
+  tenantId: string;
+  saleId: string;
+  accessKey: string;
+}
+
+export interface FiscalCancelResult {
+  canceled: boolean;
+  rejectionReason?: string;
+}
+
 /**
  * Interface do emissor fiscal (NFC-e) — ver docs/03. O resto do sistema fala
  * só com esta interface; trocar de provedor (Focus NFe, PlugNotas, eNotas...)
@@ -28,4 +39,5 @@ export interface FiscalIssueResult {
  */
 export interface FiscalProvider {
   issueNFCe(params: FiscalIssueParams): Promise<FiscalIssueResult>;
+  cancelNFCe(params: FiscalCancelParams): Promise<FiscalCancelResult>;
 }

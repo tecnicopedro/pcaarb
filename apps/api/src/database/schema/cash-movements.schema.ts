@@ -3,7 +3,9 @@ import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 import { cashSessions } from './cash-sessions.schema';
 
-export const cashMovementTypeEnum = pgEnum('cash_movement_type', ['sangria', 'suprimento']);
+// 'estorno' (reembolso em dinheiro de uma devolução de venda) foi adicionado
+// depois de sangria/suprimento — ver SaleReturnsService.
+export const cashMovementTypeEnum = pgEnum('cash_movement_type', ['sangria', 'suprimento', 'estorno']);
 
 export const cashMovements = pgTable('cash_movements', {
   id: uuid('id').primaryKey().defaultRandom(),

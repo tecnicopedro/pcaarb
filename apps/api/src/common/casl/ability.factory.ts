@@ -22,6 +22,7 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 export type Subject =
   | 'all'
   | 'Sale'
+  | 'SaleReturn'
   | 'CashSession'
   | 'Product'
   | 'Category'
@@ -95,6 +96,7 @@ export class AbilityFactory {
       case 'admin':
         can('manage', [
           'Sale',
+          'SaleReturn',
           'CashSession',
           'Product',
           'Category',
@@ -116,6 +118,7 @@ export class AbilityFactory {
         can('manage', ['FinanceEntry', 'CostCenter']);
         can('read', [
           'Sale',
+          'SaleReturn',
           'CashSession',
           'Product',
           'Category',
@@ -130,6 +133,7 @@ export class AbilityFactory {
         break;
       case 'operador_caixa':
         can(['create', 'read'], 'Sale');
+        can(['create', 'read'], 'SaleReturn');
         can(['create', 'read', 'update'], 'CashSession');
         can('read', ['Product', 'Category', 'Customer', 'Store']);
         break;

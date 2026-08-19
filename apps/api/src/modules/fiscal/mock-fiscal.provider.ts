@@ -1,6 +1,12 @@
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { FiscalIssueParams, FiscalIssueResult, FiscalProvider } from './fiscal-provider.interface';
+import type {
+  FiscalCancelParams,
+  FiscalCancelResult,
+  FiscalIssueParams,
+  FiscalIssueResult,
+  FiscalProvider,
+} from './fiscal-provider.interface';
 
 /**
  * Adapter de sandbox: sempre autoriza e gera uma chave de acesso no formato
@@ -17,5 +23,9 @@ export class MockFiscalProvider implements FiscalProvider {
       accessKey,
       documentUrl: `https://fiscal-sandbox.pcaarb.local/nfce/${accessKey}`,
     };
+  }
+
+  async cancelNFCe(_params: FiscalCancelParams): Promise<FiscalCancelResult> {
+    return { canceled: true };
   }
 }

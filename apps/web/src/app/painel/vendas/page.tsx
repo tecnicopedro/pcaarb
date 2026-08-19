@@ -3,16 +3,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'motion/react';
 import { Fragment, useState } from 'react';
-import { ChevronDown, Printer, Receipt, RefreshCw } from 'lucide-react';
+import { ChevronDown, Printer, Receipt, RefreshCw, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Customer, PaymentMethod, Sale, SaleListItem, Store } from '@pcaarb/shared';
+import type {
+  Customer,
+  CreateSaleReturnInput,
+  PaymentMethod,
+  Sale,
+  SaleListItem,
+  SaleReturn,
+  SaleReturnRefundMethod,
+  Store,
+} from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { formatCentsToBRL } from '@/lib/currency';
 import { useAccessToken } from '@/lib/use-access-token';
 import { useCurrentUser } from '@/lib/use-current-user';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { SkeletonRows } from '@/components/ui/skeleton';
 import { SaleReceipt } from '@/components/pdv/sale-receipt';
 
@@ -21,6 +31,17 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   cartao_credito: 'Cartão de crédito',
   cartao_debito: 'Cartão de débito',
   pix: 'Pix',
+};
+
+const REFUND_METHOD_LABELS: Record<SaleReturnRefundMethod, string> = {
+  dinheiro: 'Dinheiro (do caixa aberto)',
+  estorno_pagamento: 'Estorno no cartão/Pix',
+  outro: 'Outro (troca, crédito combinado à parte...)',
+};
+
+const RETURN_STATUS_BADGE: Record<SaleReturn['status'], { label: string; variant: BadgeVariant }> = {
+  completed: { label: 'Concluída', variant: 'success' },
+  needs_attention: { label: 'Precisa de atenção', variant: 'warning' },
 };
 
 function formatDateTime(iso: string): string {
@@ -39,6 +60,10 @@ function SaleDetail({
 }) {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();
+  const [returnFormOpen, setReturnFormOpen] = useState(false);
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
+  const [returnReason, setReturnReason] = useState('');
+  const [returnMethod, setReturnMethod] = useState<SaleReturnRefundMethod>('dinheiro');
 
   const retryMutation = useMutation({
     mutationFn: () =>
@@ -54,6 +79,48 @@ function SaleDetail({
       toast.error(error instanceof ApiError ? error.message : 'Erro ao reemitir NFC-e');
     },
   });
+
+  const returnsQuery = useQuery({
+    queryKey: ['sales', sale.id, 'returns'],
+    queryFn: () => apiFetch<SaleReturn[]>(`/sales/${sale.id}/returns`, { accessToken: accessToken! }),
+    enabled: !!accessToken,
+  });
+
+  const alreadyReturnedByItem = new Map<string, number>();
+  for (const ret of returnsQuery.data ?? []) {
+    for (const item of ret.items) {
+      alreadyReturnedByItem.set(item.saleItemId, (alreadyReturnedByItem.get(item.saleItemId) ?? 0) + item.quantity);
+    }
+  }
+  const remaining = (saleItemId: string, originalQuantity: number) =>
+    originalQuantity - (alreadyReturnedByItem.get(saleItemId) ?? 0);
+
+  const returnMutation = useMutation({
+    mutationFn: () => {
+      const items = Object.entries(returnQuantities)
+        .map(([saleItemId, quantity]) => ({ saleItemId, quantity: Number(quantity) }))
+        .filter((item) => item.quantity > 0);
+      const body: CreateSaleReturnInput = { refundMethod: returnMethod, reason: returnReason, items };
+      return apiFetch<SaleReturn>(`/sales/${sale.id}/returns`, { method: 'POST', accessToken: accessToken!, body });
+    },
+    onSuccess: (created) => {
+      if (created.status === 'needs_attention') {
+        toast.warning(created.issue ?? 'Devolução registrada, mas precisa de atenção');
+      } else {
+        toast.success('Devolução registrada');
+      }
+      setReturnFormOpen(false);
+      setReturnQuantities({});
+      setReturnReason('');
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao registrar devolução');
+    },
+  });
+
+  const hasQuantityToReturn = Object.values(returnQuantities).some((q) => Number(q) > 0);
 
   return (
     <div className="flex flex-col gap-3 border-t border-border bg-zinc-50 px-4 py-3 dark:bg-zinc-900/50">
@@ -85,6 +152,12 @@ function SaleDetail({
               Reemitir NFC-e
             </Button>
           )}
+          {sale.status === 'completed' && (
+            <Button variant="secondary" onClick={() => setReturnFormOpen((open) => !open)}>
+              <Undo2 className="h-4 w-4" />
+              Devolver
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => window.print()}>
             <Printer className="h-4 w-4" />
             Imprimir cupom
@@ -100,20 +173,99 @@ function SaleDetail({
               <th className="px-3 py-1.5 font-medium">Qtd</th>
               <th className="px-3 py-1.5 font-medium">Unitário</th>
               <th className="px-3 py-1.5 font-medium">Total</th>
+              {returnFormOpen && <th className="px-3 py-1.5 font-medium">Devolver</th>}
             </tr>
           </thead>
           <tbody>
-            {sale.items.map((item) => (
-              <tr key={item.id} className="border-t border-border">
-                <td className="px-3 py-1.5">{item.productName}</td>
-                <td className="px-3 py-1.5">{item.quantity}</td>
-                <td className="px-3 py-1.5">{formatCentsToBRL(item.unitPriceCents)}</td>
-                <td className="px-3 py-1.5">{formatCentsToBRL(item.totalCents)}</td>
-              </tr>
-            ))}
+            {sale.items.map((item) => {
+              const returnable = remaining(item.id, item.quantity);
+              return (
+                <tr key={item.id} className="border-t border-border">
+                  <td className="px-3 py-1.5">{item.productName}</td>
+                  <td className="px-3 py-1.5">{item.quantity}</td>
+                  <td className="px-3 py-1.5">{formatCentsToBRL(item.unitPriceCents)}</td>
+                  <td className="px-3 py-1.5">{formatCentsToBRL(item.totalCents)}</td>
+                  {returnFormOpen && (
+                    <td className="px-3 py-1.5">
+                      {returnable > 0 ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          max={returnable}
+                          placeholder="0"
+                          className="h-8 w-20"
+                          value={returnQuantities[item.id] ?? ''}
+                          onChange={(e) => setReturnQuantities((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        />
+                      ) : (
+                        <span className="text-xs text-muted">já devolvido</span>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {returnFormOpen && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <label className="text-sm">Motivo</label>
+              <Input
+                placeholder="Ex.: produto com defeito, cliente desistiu..."
+                value={returnReason}
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:w-64">
+              <label className="text-sm">Reembolso</label>
+              <select
+                className="h-10 rounded-md border border-border bg-card px-3 text-sm"
+                value={returnMethod}
+                onChange={(e) => setReturnMethod(e.target.value as SaleReturnRefundMethod)}
+              >
+                {(Object.entries(REFUND_METHOD_LABELS) as [SaleReturnRefundMethod, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              loading={returnMutation.isPending}
+              disabled={!hasQuantityToReturn || returnReason.trim().length < 3}
+              onClick={() => returnMutation.mutate()}
+            >
+              Confirmar devolução
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {(returnsQuery.data?.length ?? 0) > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted">Devoluções desta venda</span>
+          <div className="flex flex-col gap-1.5">
+            {returnsQuery.data!.map((ret) => (
+              <div
+                key={ret.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs"
+              >
+                <span className="text-muted">
+                  {formatDateTime(ret.createdAt)} · {ret.reason}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{formatCentsToBRL(ret.totalRefundedCents)}</span>
+                  <Badge variant={RETURN_STATUS_BADGE[ret.status].variant}>{RETURN_STATUS_BADGE[ret.status].label}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4 text-sm text-muted">
         {sale.payments.map((payment) => (

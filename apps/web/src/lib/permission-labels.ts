@@ -2,6 +2,7 @@ import type { PermissionAction, PermissionSubject } from '@pcaarb/shared';
 
 export const PERMISSION_SUBJECT_LABELS: Record<PermissionSubject, string> = {
   Sale: 'Vendas',
+  SaleReturn: 'Devoluções',
   CashSession: 'Caixa',
   Product: 'Produtos',
   Category: 'Categorias',

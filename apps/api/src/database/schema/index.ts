@@ -11,6 +11,8 @@ export * from './cash-movements.schema';
 export * from './sales.schema';
 export * from './sale-items.schema';
 export * from './sale-payments.schema';
+export * from './sale-returns.schema';
+export * from './sale-return-items.schema';
 export * from './stock-movements.schema';
 export * from './finance-entries.schema';
 export * from './fiscal-documents.schema';
