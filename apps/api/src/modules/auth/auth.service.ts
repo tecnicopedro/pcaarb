@@ -11,6 +11,7 @@ import type { AcceptInviteInput, AuthTokens, LoginInput, RegisterTenantInput } f
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { passwordResetTokens, refreshTokens, users, type UserRow } from '../../database/schema/index';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { EMAIL_PROVIDER, type EmailProvider } from '../email/email-provider.interface';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
@@ -41,6 +42,7 @@ export class AuthService {
     private readonly tenantsService: TenantsService,
     private readonly usersService: UsersService,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async register(input: RegisterTenantInput): Promise<AuthTokens> {
@@ -136,11 +138,26 @@ export class AuthService {
       }
 
       const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-      await tx.update(users).set({ passwordHash, failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, tokenRow.userId));
+      const [updatedUser] = await tx
+        .update(users)
+        .set({ passwordHash, failedLoginAttempts: 0, lockedUntil: null })
+        .where(eq(users.id, tokenRow.userId))
+        .returning({ tenantId: users.tenantId });
+      if (!updatedUser) {
+        throw new Error('Falha ao atualizar senha do usuário');
+      }
       await tx.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, tokenRow.id));
       // Troca de senha não deve deixar sessões antigas (possivelmente
       // comprometidas — é o cenário que motiva um reset) continuarem válidas.
       await tx.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, tokenRow.userId));
+
+      await this.auditLogService.recordTx(tx, {
+        tenantId: updatedUser.tenantId,
+        actorUserId: tokenRow.userId,
+        action: 'auth.password_reset',
+        targetType: 'User',
+        targetId: tokenRow.userId,
+      });
     });
   }
 

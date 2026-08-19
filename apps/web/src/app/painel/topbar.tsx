@@ -10,6 +10,7 @@ import {
   Contact,
   CreditCard,
   Gift,
+  History,
   LayoutDashboard,
   LogOut,
   type LucideIcon,
@@ -85,6 +86,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { href: '/painel/integracoes', label: 'Integrações', icon: Plug },
       { href: '/painel/usuarios', label: 'Usuários', icon: Users },
       { href: '/painel/assinatura', label: 'Assinatura', icon: CreditCard },
+      { href: '/painel/auditoria', label: 'Auditoria', icon: History },
     ],
   },
 ];

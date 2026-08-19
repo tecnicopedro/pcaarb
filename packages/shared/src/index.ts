@@ -25,3 +25,4 @@ export * from './schemas/billing.js';
 export * from './schemas/store.js';
 export * from './schemas/marketplace.js';
 export * from './schemas/api-key.js';
+export * from './schemas/audit-log.js';

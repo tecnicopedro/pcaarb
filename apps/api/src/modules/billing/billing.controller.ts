@@ -5,6 +5,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { BypassTenantStatus } from '../../common/decorators/bypass-tenant-status.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { BillingService } from './billing.service';
 
 // @BypassTenantStatus() nos quatro: um tenant bloqueado por inadimplência
@@ -24,7 +25,10 @@ import { BillingService } from './billing.service';
 @ApiBearerAuth()
 @Controller('billing')
 export class BillingController {
-  constructor(private readonly billingService: BillingService) {}
+  constructor(
+    private readonly billingService: BillingService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @BypassTenantStatus()
   @Roles('owner', 'admin')
@@ -47,14 +51,31 @@ export class BillingController {
   @BypassTenantStatus()
   @Roles('owner')
   @Post('subscribe')
-  subscribe(@CurrentUser() user: JwtPayload, @Body(new ZodValidationPipe(subscribeInputSchema)) body: SubscribeInput) {
-    return this.billingService.subscribe(user.tenantId, body);
+  async subscribe(@CurrentUser() user: JwtPayload, @Body(new ZodValidationPipe(subscribeInputSchema)) body: SubscribeInput) {
+    const subscription = await this.billingService.subscribe(user.tenantId, body);
+    await this.auditLogService.record({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'billing.subscribed',
+      targetType: 'Tenant',
+      targetId: user.tenantId,
+      metadata: { plan: body.plan },
+    });
+    return subscription;
   }
 
   @BypassTenantStatus()
   @Roles('owner')
   @Post('cancel')
-  cancel(@CurrentUser() user: JwtPayload) {
-    return this.billingService.cancel(user.tenantId);
+  async cancel(@CurrentUser() user: JwtPayload) {
+    const subscription = await this.billingService.cancel(user.tenantId);
+    await this.auditLogService.record({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'billing.canceled',
+      targetType: 'Tenant',
+      targetId: user.tenantId,
+    });
+    return subscription;
   }
 }

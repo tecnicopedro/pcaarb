@@ -17,6 +17,7 @@ import type { AcceptInviteInput, InviteUserInput, Role } from '@pcaarb/shared';
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { tenants, userInvites, users, type NewUserRow, type UserInviteRow, type UserRow } from '../../database/schema/index';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { EMAIL_PROVIDER, type EmailProvider } from '../email/email-provider.interface';
 
 const BCRYPT_ROUNDS = 12;
@@ -30,6 +31,7 @@ export class UsersService {
     @Inject(DRIZZLE) private readonly db: Database,
     @Inject(EMAIL_PROVIDER) private readonly emailProvider: EmailProvider,
     private readonly config: ConfigService<Env, true>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findByEmail(email: string): Promise<UserRow | undefined> {
@@ -42,14 +44,27 @@ export class UsersService {
     return user;
   }
 
-  // Chamado pelo AuthService a cada tentativa de login com senha errada.
-  // Ao atingir o limiar, bloqueia a conta por LOGIN_LOCKOUT_MS a partir de
-  // AGORA — continuar tentando enquanto já bloqueada só estende a janela,
-  // não desbloqueia mais cedo.
+  // Chamado pelo AuthService a cada tentativa de login com senha errada —
+  // mas só até a conta bloquear: uma vez bloqueada, `AuthService.login()`
+  // rejeita antes mesmo de chegar aqui (checagem de `lockedUntil` acontece
+  // antes da senha decidir a resposta, ver comentário lá — achado de
+  // revisão de segurança, 2026-08-19), então o bloqueio expira sozinho depois
+  // de LOGIN_LOCKOUT_MS, sem ser estendido por tentativas subsequentes.
   async registerFailedLogin(user: UserRow): Promise<void> {
     const attempts = user.failedLoginAttempts + 1;
-    const lockedUntil = attempts >= LOGIN_LOCKOUT_THRESHOLD ? new Date(Date.now() + LOGIN_LOCKOUT_MS) : user.lockedUntil;
+    const justLocked = attempts === LOGIN_LOCKOUT_THRESHOLD;
+    const lockedUntil = justLocked ? new Date(Date.now() + LOGIN_LOCKOUT_MS) : user.lockedUntil;
     await this.db.update(users).set({ failedLoginAttempts: attempts, lockedUntil }).where(eq(users.id, user.id));
+    if (justLocked) {
+      await this.auditLogService.record({
+        tenantId: user.tenantId,
+        actorUserId: null,
+        action: 'auth.account_locked',
+        targetType: 'User',
+        targetId: user.id,
+        metadata: { failedLoginAttempts: attempts },
+      });
+    }
   }
 
   // Chamado em todo login bem-sucedido — zera o contador pra não acumular

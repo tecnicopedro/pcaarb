@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { CashSessionsModule } from '../cash-sessions/cash-sessions.module';
 import { StockModule } from '../stock/stock.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -10,7 +11,7 @@ import { SaleReturnsForSaleController, SaleReturnsController } from './sale-retu
 import { SaleReturnsService } from './sale-returns.service';
 
 @Module({
-  imports: [CashSessionsModule, StockModule, PaymentsModule, FiscalModule, LoyaltyModule],
+  imports: [CashSessionsModule, StockModule, PaymentsModule, FiscalModule, LoyaltyModule, AuditLogModule],
   controllers: [SalesController, SaleReturnsForSaleController, SaleReturnsController],
   providers: [SalesService, SaleReturnsService],
   exports: [SalesService, SaleReturnsService],

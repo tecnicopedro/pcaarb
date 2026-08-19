@@ -239,6 +239,20 @@
       "when": 1787107731890,
       "tag": "0033_messy_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1787110027236,
+      "tag": "0034_hard_wonder_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1787110027237,
+      "tag": "0035_enable_rls_audit_logs",
+      "breakpoints": true
     }
   ]
 }

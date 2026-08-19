@@ -5,7 +5,7 @@ export const permissionActionSchema = z.enum(['manage', 'create', 'read', 'updat
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
 
 // Espelha o `Subject` do CASL (apps/api/src/common/casl/ability.factory.ts),
-// exceto 'all', 'Tenant', 'UserAccess' e 'Integration' — override não pode
+// exceto 'all', 'Tenant', 'UserAccess', 'Integration' e 'AuditLog' — override não pode
 // conceder acesso de nível tenant, o wildcard, nem convidar/trocar papel de
 // usuário ('UserAccess'), pra não virar um caminho de escalonamento de
 // privilégio por fora do papel de owner/admin. 'User' aqui só cobre leitura
@@ -21,6 +21,12 @@ export type PermissionAction = z.infer<typeof permissionActionSchema>;
 // permissão pra mintar uma chave de API com role:'admin', ganhando acesso
 // equivalente a admin de forma durável. Mesma classe de bug que motivou
 // excluir 'UserAccess' acima; mesma correção.
+//
+// 'AuditLog' é excluído desde a criação do subject (não é correção de um
+// achado) — ler o próprio log de auditoria de ações sensíveis é owner-only
+// por natureza, mesmo raciocínio de 'Tenant': delegar isso por override
+// deixaria um admin conceder a si mesmo (ou a outro usuário) visibilidade
+// sobre ações que o próprio dono do negócio talvez não quisesse expor.
 export const permissionSubjectSchema = z.enum([
   'Sale',
   'SaleReturn',

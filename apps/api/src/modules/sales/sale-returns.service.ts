@@ -15,6 +15,7 @@ import {
   type SaleReturnRow,
   type SaleReturnItemRow,
 } from '../../database/schema/index';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { CashSessionsService } from '../cash-sessions/cash-sessions.service';
 import { StockService } from '../stock/stock.service';
 import { PAYMENT_PROVIDER, type PaymentProvider } from '../payments/payment-provider.interface';
@@ -32,6 +33,7 @@ export class SaleReturnsService {
     private readonly stockService: StockService,
     @Inject(PAYMENT_PROVIDER) private readonly paymentProvider: PaymentProvider,
     private readonly fiscalService: FiscalService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(tenantId: string, userId: string, saleId: string, input: CreateSaleReturnInput): Promise<SaleReturnWithItems> {
@@ -268,6 +270,15 @@ export class SaleReturnsService {
           })),
         )
         .returning();
+
+      await this.auditLogService.recordTx(tx, {
+        tenantId,
+        actorUserId: userId,
+        action: 'sale_return.created',
+        targetType: 'Sale',
+        targetId: sale.id,
+        metadata: { saleReturnId: saleReturn.id, totalRefundedCents, status: saleReturn.status },
+      });
 
       return { ...saleReturn, items: insertedItems };
     });

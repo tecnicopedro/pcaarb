@@ -18,7 +18,11 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 // exclusão em permissionSubjectSchema (packages/shared). 'Integration'
 // também é excluído de lá pelo mesmo motivo: gate POST /api-keys, que mint
 // credencial durável com o role pedido — um override pontual de
-// 'Integration' virava caminho de escalonamento pra role:'admin'.
+// 'Integration' virava caminho de escalonamento pra role:'admin'. 'AuditLog'
+// é owner-only por design (não entra no `can('manage', [...])` do admin
+// abaixo nem em permissionSubjectSchema) — ler o próprio log de auditoria
+// não pode ser delegável, senão um admin (ou pior, um override) poderia
+// ocultar ou verificar se as próprias ações sensíveis ficaram registradas.
 export type Subject =
   | 'all'
   | 'Sale'
@@ -38,7 +42,8 @@ export type Subject =
   | 'User'
   | 'UserAccess'
   | 'Store'
-  | 'Integration';
+  | 'Integration'
+  | 'AuditLog';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 

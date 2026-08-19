@@ -34,6 +34,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
     StoresModule,
     MarketplaceModule,
     ApiKeysModule,
+    AuditLogModule,
   ],
   providers: [
     AbilityFactory,

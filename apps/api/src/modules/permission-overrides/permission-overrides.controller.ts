@@ -4,6 +4,7 @@ import { createPermissionOverrideSchema, type CreatePermissionOverrideInput, typ
 import { CheckAbilities } from '../../common/decorators/check-abilities.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { PermissionOverridesService } from './permission-overrides.service';
 
 // Exceção de permissão é uma extensão de gestão de usuários — mesmo CASL
@@ -21,7 +22,10 @@ import { PermissionOverridesService } from './permission-overrides.service';
 @ApiBearerAuth()
 @Controller('users/:userId/permission-overrides')
 export class PermissionOverridesController {
-  constructor(private readonly permissionOverridesService: PermissionOverridesService) {}
+  constructor(
+    private readonly permissionOverridesService: PermissionOverridesService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @CheckAbilities({ action: 'read', subject: 'UserAccess' })
   @Get()
@@ -31,22 +35,39 @@ export class PermissionOverridesController {
 
   @CheckAbilities({ action: 'update', subject: 'UserAccess' })
   @Post()
-  create(
+  async create(
     @CurrentUser() user: JwtPayload,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body(new ZodValidationPipe(createPermissionOverrideSchema)) body: CreatePermissionOverrideInput,
   ) {
-    return this.permissionOverridesService.create(user.tenantId, userId, user.sub, body);
+    const override = await this.permissionOverridesService.create(user.tenantId, userId, user.sub, body);
+    await this.auditLogService.record({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'permission_override.granted',
+      targetType: 'User',
+      targetId: userId,
+      metadata: { subject: body.subject, action: body.action, effect: body.effect },
+    });
+    return override;
   }
 
   @CheckAbilities({ action: 'update', subject: 'UserAccess' })
   @Delete(':overrideId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
+  async remove(
     @CurrentUser() user: JwtPayload,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Param('overrideId', ParseUUIDPipe) overrideId: string,
   ) {
-    return this.permissionOverridesService.remove(user.tenantId, userId, overrideId);
+    await this.permissionOverridesService.remove(user.tenantId, userId, overrideId);
+    await this.auditLogService.record({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'permission_override.revoked',
+      targetType: 'User',
+      targetId: userId,
+      metadata: { overrideId },
+    });
   }
 }
