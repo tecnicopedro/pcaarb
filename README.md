@@ -10,12 +10,12 @@ This README is a concise, English-language orientation for anyone evaluating the
 
 | Doc | Content |
 |---|---|
-| [README.pt-BR.md](README.pt-BR.md) | The full engineering log — every module and every security review, in detail |
-| [docs/01-visao-geral-e-roadmap.md](docs/01-visao-geral-e-roadmap.md) | Original product vision, target market, and phased roadmap (Portuguese) |
-| [docs/02-stack-tecnologico.md](docs/02-stack-tecnologico.md) | Original tech stack proposal, pre-implementation (Portuguese) |
-| [docs/03-build-vs-buy-pagamentos-fiscal.md](docs/03-build-vs-buy-pagamentos-fiscal.md) | Build-vs-buy analysis for payments and Brazilian fiscal integration (Portuguese) |
+| [README.pt-BR.md](README.pt-BR.md) | The full engineering log — every module and every security review, in detail (Portuguese) |
+| [docs/01-product-vision-and-roadmap.md](docs/01-product-vision-and-roadmap.md) | Original product vision, target market, and phased roadmap |
+| [docs/02-tech-stack-proposal.md](docs/02-tech-stack-proposal.md) | Original tech stack proposal, pre-implementation |
+| [docs/03-build-vs-buy-payments-fiscal.md](docs/03-build-vs-buy-payments-fiscal.md) | Build-vs-buy analysis for payments and Brazilian fiscal integration |
 | [PRECOS-E-CUSTOS.md](PRECOS-E-CUSTOS.md) | Subscription pricing catalog and cost structure (Portuguese) |
-| [docs/04-termos-de-uso-RASCUNHO.md](docs/04-termos-de-uso-RASCUNHO.md) / [docs/05-politica-de-privacidade-RASCUNHO.md](docs/05-politica-de-privacidade-RASCUNHO.md) | Terms of Service / LGPD privacy policy — drafts, need legal review before publishing |
+| [docs/04-termos-de-uso-RASCUNHO.md](docs/04-termos-de-uso-RASCUNHO.md) / [docs/05-politica-de-privacidade-RASCUNHO.md](docs/05-politica-de-privacidade-RASCUNHO.md) | Terms of Service / LGPD privacy policy — drafts, need legal review before publishing (Portuguese) |
 
 ## Stack
 
