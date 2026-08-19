@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { ConflictException, GoneException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-// As quatro classes abaixo são importadas por valor (não `import type`) de
-// propósito: são injetadas no construtor e o NestJS as resolve via
-// emitDecoratorMetadata, que só emite o tipo real para imports de valor.
+// The four classes below are imported by value (not `import type`) on
+// purpose: they're injected in the constructor and NestJS resolves them via
+// emitDecoratorMetadata, which only emits the real type for value imports.
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -19,13 +19,13 @@ import { UsersService } from '../users/users.service';
 const BCRYPT_ROUNDS = 12;
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
-// Hash fixo gerado uma vez no boot (não por request) — comparado quando o
-// e-mail não existe, pra login nunca vazar por tempo de resposta se um
-// e-mail está cadastrado ou não. Sem isso, "e-mail não encontrado" responde
-// na velocidade de uma query indexada (poucos ms) e "senha errada" na
-// velocidade do bcrypt.compare (dezenas de ms) — mesma mensagem de erro nos
-// dois casos, mas o tempo de resposta já é um oráculo de enumeração de
-// e-mail (achado de revisão de segurança, 2026-08-18).
+// Fixed hash generated once at boot (not per request) — compared against
+// when the email doesn't exist, so login never leaks via response time
+// whether an email is registered or not. Without this, "email not found"
+// responds at the speed of an indexed query (a few ms) and "wrong password"
+// at the speed of bcrypt.compare (tens of ms) — same error message in both
+// cases, but the response time alone is already an email enumeration oracle
+// (security review finding, 2026-08-18).
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('senha-fixa-so-pra-igualar-o-tempo-de-resposta', BCRYPT_ROUNDS);
 
 interface RefreshJwtPayload {
@@ -57,30 +57,32 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<AuthTokens> {
     const user = await this.usersService.findByEmail(input.email);
-    // bcrypt.compare roda sempre, mesmo sem usuário — contra o hash real se
-    // existe, contra o dummy se não. Nunca pular esse passo condicionalmente
-    // (ver DUMMY_PASSWORD_HASH acima).
+    // bcrypt.compare always runs, even without a user — against the real
+    // hash if one exists, against the dummy if not. Never skip this step
+    // conditionally (see DUMMY_PASSWORD_HASH above).
     const passwordMatches = await bcrypt.compare(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
 
-    // Checado ANTES da senha decidir a resposta, com a MESMA mensagem
-    // esteja a senha certa ou errada: senão a mensagem de "bloqueada" só
-    // aparecer quando a senha bate vira um oráculo de acerto de senha
-    // utilizável mesmo com a conta bloqueada (achado de revisão de
-    // segurança, 2026-08-19) — um atacante com uma credencial vazada
-    // bloqueava a conta de propósito (5 tentativas erradas) e depois
-    // mandava a senha candidata: "bloqueada" em vez de "inválidos"
-    // confirmava a senha certa, sem nunca completar um login de verdade
-    // (e sem gerar nenhum evento de login bem-sucedido pra alguém notar).
-    // Não é enumeração de e-mail nova: só dispara pra contas que existem,
-    // mesmo racional já aceito antes desta correção.
+    // Checked BEFORE the password decides the response, with the SAME
+    // message whether the password is right or wrong: otherwise the
+    // "locked" message only appearing when the password matches becomes a
+    // password-guessing oracle usable even with the account locked
+    // (security review finding, 2026-08-19) — an attacker with a leaked
+    // credential would lock the account on purpose (5 wrong attempts) and
+    // then send the candidate password: "locked" instead of "invalid"
+    // confirmed the password was correct, without ever completing an
+    // actual login (and without generating any successful-login event for
+    // anyone to notice). This isn't new email enumeration: it only fires
+    // for accounts that exist, same rationale already accepted before this
+    // fix.
     if (user?.lockedUntil && user.lockedUntil > new Date()) {
       throw new UnauthorizedException('Conta temporariamente bloqueada por muitas tentativas de login — tente novamente mais tarde');
     }
 
-    // Usuário desativado (ver users.active) trata como credencial inválida —
-    // mesma mensagem genérica de sempre, nunca "conta desativada": revelar
-    // esse estado distinto pra quem só tem a senha (ex.: ex-funcionário
-    // desligado) seria um vazamento de status de conta desnecessário.
+    // A deactivated user (see users.active) is treated as an invalid
+    // credential — same generic message as always, never "account
+    // deactivated": revealing that distinct state to whoever only has the
+    // password (e.g. a former employee) would be an unnecessary account
+    // status leak.
     if (!user || !passwordMatches || !user.active) {
       if (user && user.active) {
         await this.usersService.registerFailedLogin(user);
@@ -95,13 +97,14 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
-  // Sempre "sucede" do ponto de vista do chamador, e-mail exista ou não —
-  // mesma disciplina anti-enumeração do login. O hash bcrypt do token roda
-  // mesmo sem usuário, igualando o custo de CPU; o tempo de envio real do
-  // e-mail (rede, fora do nosso controle) é um resíduo aceito, mesmo
-  // raciocínio já documentado para o token de convite: não dá pra fingir
-  // latência de rede de um provedor de terceiro sem piorar a experiência de
-  // quem legitimamente esqueceu a senha.
+  // Always "succeeds" from the caller's point of view, whether the email
+  // exists or not — same anti-enumeration discipline as login. The token's
+  // bcrypt hash runs even without a user, equalizing CPU cost; the actual
+  // email-sending time (network, outside our control) is an accepted
+  // residual, same reasoning already documented for the invite token:
+  // there's no way to fake a third-party provider's network latency without
+  // making the experience worse for someone who legitimately forgot their
+  // password.
   async requestPasswordReset(email: string): Promise<void> {
     const user = await this.usersService.findByEmail(email);
     const rawToken = randomBytes(32).toString('hex');
@@ -112,8 +115,8 @@ export class AuthService {
     }
 
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-    // Mesmo racional do convite: token sem e-mail entregue não serve pra
-    // nada, então o registro é desfeito junto se o envio falhar.
+    // Same rationale as the invite: a token whose email was never delivered
+    // is useless, so the record is rolled back too if sending fails.
     await this.db.transaction(async (tx) => {
       const [tokenRow] = await tx.insert(passwordResetTokens).values({ userId: user.id, tokenHash, expiresAt }).returning();
       if (!tokenRow) {
@@ -151,8 +154,9 @@ export class AuthService {
         throw new Error('Falha ao atualizar senha do usuário');
       }
       await tx.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, tokenRow.id));
-      // Troca de senha não deve deixar sessões antigas (possivelmente
-      // comprometidas — é o cenário que motiva um reset) continuarem válidas.
+      // Changing the password must not leave old sessions (possibly
+      // compromised — that's the scenario that motivates a reset) still
+      // valid.
       await tx.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, tokenRow.userId));
 
       await this.auditLogService.recordTx(tx, {
@@ -186,11 +190,11 @@ export class AuthService {
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, tokenRow.id));
 
     const user = await this.usersService.findById(tokenRow.userId);
-    // Defesa em profundidade: UsersService.deactivate() já revoga os refresh
-    // tokens existentes na hora de desativar, então este caso só dispararia
-    // se algum outro caminho deixasse um token ativo pra trás — mas mesmo
-    // assim, refresh nunca deveria devolver um token novo pra uma conta
-    // desativada (achado de revisão de segurança, 2026-08-19).
+    // Defense in depth: UsersService.deactivate() already revokes existing
+    // refresh tokens at deactivation time, so this case would only fire if
+    // some other path left an active token behind — but even so, refresh
+    // should never return a new token for a deactivated account (security
+    // review finding, 2026-08-19).
     if (!user || !user.active) {
       throw new UnauthorizedException('Refresh token inválido');
     }
@@ -198,11 +202,12 @@ export class AuthService {
     return this.issueTokens(user);
   }
 
-  // Logout é o único jeito de matar um refresh token antes da hora — sem
-  // isso, um token vazado fica válido até expirar (rotação só revoga o
-  // anterior quando o token É USADO pra pegar um novo). Tolerante a token
-  // já inválido/revogado: logout sempre "funciona" do ponto de vista do
-  // cliente, não há nada de sensível em confirmar isso sem erro.
+  // Logout is the only way to kill a refresh token before its time — without
+  // it, a leaked token stays valid until it expires (rotation only revokes
+  // the previous one when the token IS USED to get a new one). Tolerant of
+  // an already invalid/revoked token: logout always "works" from the
+  // client's point of view, there's nothing sensitive about confirming that
+  // without an error.
   async logout(rawToken: string): Promise<void> {
     let payload: RefreshJwtPayload;
     try {

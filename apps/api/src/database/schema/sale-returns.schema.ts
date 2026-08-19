@@ -13,10 +13,11 @@ export const saleReturnRefundMethodEnum = pgEnum('sale_return_refund_method', [
 
 export const saleReturnStatusEnum = pgEnum('sale_return_status', ['completed', 'needs_attention']);
 
-// Uma devolução (total ou parcial) de uma venda já concluída. Nunca edita a
-// venda original (sale_items é snapshot imutável, mesmo racional de sempre)
-// — em vez disso registra o que foi devolvido e reverte efeitos colaterais
-// (estoque, pontos, caixa, fiscal) na mesma transação.
+// A return (full or partial) of a sale that's already completed. Never
+// edits the original sale (sale_items is an immutable snapshot, same
+// rationale as always) — instead it records what was returned and reverses
+// side effects (stock, points, cash register, fiscal) within the same
+// transaction.
 export const saleReturns = pgTable('sale_returns', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -28,20 +29,20 @@ export const saleReturns = pgTable('sale_returns', {
   processedBy: uuid('processed_by')
     .notNull()
     .references(() => users.id),
-  // Nula quando refundMethod não é 'dinheiro'. Sessão de quem está
-  // processando a devolução agora — não necessariamente a mesma sessão da
-  // venda original, que pode já ter fechado.
+  // Null when refundMethod isn't 'dinheiro'. The session of whoever is
+  // processing the return now — not necessarily the same session as the
+  // original sale, which may have already closed.
   cashSessionId: uuid('cash_session_id').references(() => cashSessions.id),
   refundMethod: saleReturnRefundMethodEnum('refund_method').notNull(),
   reason: text('reason').notNull(),
   status: saleReturnStatusEnum('status').notNull(),
-  // Preenchido só quando status = 'needs_attention' (mesmo padrão de
-  // marketplace_orders.issue) — nunca em branco quando algo não foi
-  // aplicado por completo, pra nunca precisar adivinhar o motivo depois.
+  // Filled in only when status = 'needs_attention' (same pattern as
+  // marketplace_orders.issue) — never blank when something wasn't fully
+  // applied, so the reason never has to be guessed later.
   issue: text('issue'),
   totalRefundedCents: integer('total_refunded_cents').notNull(),
-  // Preenchido só quando o cancelamento de NFC-e foi tentado (devolução da
-  // venda inteira com documento fiscal autorizado).
+  // Filled in only when NFC-e cancellation was attempted (return of the
+  // entire sale with an authorized fiscal document).
   fiscalDocumentId: uuid('fiscal_document_id').references(() => fiscalDocuments.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

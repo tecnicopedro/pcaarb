@@ -87,8 +87,8 @@ export class CommissionsService {
     );
   }
 
-  // Reaproveitado pelo ReportsService: mapa userId -> rateBps já resolvido
-  // (override individual, senão a taxa padrão do tenant).
+  // Reused by ReportsService: a userId -> rateBps map already resolved
+  // (individual override, otherwise the tenant's default rate).
   async resolveRatesTx(tx: Database, tenantId: string, sellerIds: string[]): Promise<Map<string, number>> {
     const settings = await this.getOrCreateSettingsTx(tx, tenantId);
     const overrides = sellerIds.length

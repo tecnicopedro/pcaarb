@@ -94,10 +94,10 @@ export class FiscalService {
     });
   }
 
-  // Usado pelo SaleReturnsService dentro da própria transação da devolução,
-  // pra cancelamento fiscal e reversão de estoque/pontos/caixa serem
-  // atômicos (ou tudo, ou nada). Só tenta cancelar quando o documento existe
-  // e está autorizado — pendente/rejeitado não tem o que cancelar na SEFAZ.
+  // Used by SaleReturnsService inside the return's own transaction, so the
+  // fiscal cancellation and the stock/points/cash reversal are atomic (all
+  // or nothing). Only attempts to cancel when the document exists and is
+  // authorized — pending/rejected has nothing to cancel with SEFAZ.
   async cancelForSale(
     tx: Database,
     params: { tenantId: string; saleId: string },
@@ -139,8 +139,8 @@ export class FiscalService {
     try {
       return await this.provider.issueNFCe(params);
     } catch {
-      // Contingência: SEFAZ/provedor fora do ar não pode travar a venda —
-      // fica pendente/rejeitado para reemissão manual depois.
+      // Contingency: SEFAZ/provider being down cannot block the sale — it's
+      // left pending/rejected for manual reissue later.
       return {
         authorized: false,
         rejectionReason: 'Falha de comunicação com o provedor fiscal — tente reemitir novamente em instantes',

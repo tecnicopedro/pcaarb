@@ -17,27 +17,27 @@ export interface RecordAuditLogParams {
 export class AuditLogService {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
-  // Não-atômico com a ação principal — chamado como um passo independente
-  // logo depois dela já ter sido confirmada (ex.: troca de papel, override
-  // de permissão, assinatura/cancelamento). Aceito conscientemente: os call
-  // sites que usam este método hoje não tinham nenhuma transação própria
-  // antes deste log existir, e reestruturar cada um só pra ganhar atomicidade
-  // no registro de auditoria não valia o risco/esforço nesta fatia — log de
-  // auditoria como efeito colateral best-effort é o padrão comum de sistemas
-  // reais. Onde o call site já está dentro de uma transação com contexto de
-  // tenant ativo (devolução de venda, reset de senha), usa `recordTx` abaixo
-  // pra comitar ou reverter junto com a ação principal.
+  // Not atomic with the main action — called as an independent step right
+  // after that action has already been committed (e.g. role change,
+  // permission override, subscribe/cancel). Accepted knowingly: the call
+  // sites using this method today had no transaction of their own before
+  // this log existed, and restructuring each one just to gain atomicity on
+  // the audit record wasn't worth the risk/effort for this slice — best-effort
+  // audit logging as a side effect is the common pattern in real systems.
+  // Where the call site is already inside a transaction with an active
+  // tenant context (sale return, password reset), use `recordTx` below to
+  // commit or roll back together with the main action.
   async record(params: RecordAuditLogParams): Promise<void> {
     await runWithTenant(this.db, params.tenantId, (tx) => this.recordTx(tx, params));
   }
 
-  // `audit_logs` tem RLS (FORCE ROW LEVEL SECURITY), então todo insert
-  // precisa de `app.tenant_id` setado na transação — seta de novo aqui
-  // sempre, mesmo que o chamador já tenha feito isso via `runWithTenant`
-  // (idempotente, escopo local à transação): alguns call sites (ex.:
-  // `AuthService.resetPassword`) rodam dentro de uma transação simples,
-  // sem tenant context nenhum, já que as tabelas que mexem (`users`,
-  // `password_reset_tokens`, `refresh_tokens`) ficam fora do RLS por design.
+  // `audit_logs` has RLS (FORCE ROW LEVEL SECURITY), so every insert needs
+  // `app.tenant_id` set on the transaction — always set it again here, even
+  // if the caller already did so via `runWithTenant` (idempotent, scoped to
+  // the transaction): some call sites (e.g. `AuthService.resetPassword`) run
+  // inside a plain transaction with no tenant context at all, since the
+  // tables they touch (`users`, `password_reset_tokens`, `refresh_tokens`)
+  // are outside RLS by design.
   async recordTx(tx: Database, params: RecordAuditLogParams): Promise<void> {
     await tx.execute(sql`SELECT set_config('app.tenant_id', ${params.tenantId}, true)`);
     await tx.insert(auditLogs).values({

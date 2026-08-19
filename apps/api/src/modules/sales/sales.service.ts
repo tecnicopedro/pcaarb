@@ -43,12 +43,12 @@ export class SalesService {
   ) {}
 
   async create(tenantId: string, sellerId: string, input: CreateSaleInput): Promise<SaleWithDetails> {
-    // Replay de uma venda offline já sincronizada com sucesso (retry de rede,
-    // fila do service worker processada duas vezes) — checa ANTES de exigir
-    // caixa aberto, porque a venda pode ter sido concluída de verdade numa
-    // sessão que já fechou entretanto; devolve a venda tal como ficou na
-    // primeira vez, sem repetir cobrança/estoque/pontos. Venda online normal
-    // nunca manda clientSaleId, então nunca entra aqui.
+    // Replay of an offline sale that already synced successfully (network retry,
+    // service worker queue processed twice) — checked BEFORE requiring an open
+    // cash session, because the sale may have genuinely completed in a session
+    // that has since closed; returns the sale exactly as it ended up the first
+    // time, without repeating the charge/stock/points. A normal online sale
+    // never sends clientSaleId, so it never reaches this branch.
     if (input.clientSaleId) {
       const existing = await this.findByClientSaleId(tenantId, input.clientSaleId);
       if (existing) {
@@ -122,13 +122,14 @@ export class SalesService {
         .onConflictDoNothing({ target: [sales.tenantId, sales.clientSaleId] })
         .returning();
       if (!sale) {
-        // Corrida: outra requisição com o mesmo clientSaleId comitou entre o
-        // pre-check no início de create() e este insert (duas retentativas
-        // da mesma venda offline em voo ao mesmo tempo). O Postgres serializa
-        // os dois inserts pela unique de (tenantId, clientSaleId); quem
-        // perdeu busca a venda que a outra já criou, sem repetir nenhum
-        // efeito colateral. Só pode acontecer com clientSaleId setado — venda
-        // online nunca colide (clientSaleId sempre null).
+        // Race condition: another request with the same clientSaleId committed
+        // between the pre-check at the start of create() and this insert (two
+        // retries of the same offline sale in flight at once). Postgres
+        // serializes the two inserts via the (tenantId, clientSaleId) unique
+        // constraint; the loser looks up the sale the other one already
+        // created, without repeating any side effect. This can only happen
+        // when clientSaleId is set — an online sale never collides
+        // (clientSaleId is always null).
         const existing = await this.loadDetailsByClientSaleIdTx(tx, tenantId, input.clientSaleId!);
         if (!existing) {
           throw new Error('Falha ao registrar venda (conflito de idempotência sem venda correspondente)');
@@ -137,9 +138,9 @@ export class SalesService {
       }
 
       if (pointsToRedeem > 0) {
-        // Validação de saldo acontece aqui (não antes): dentro da mesma
-        // transação da venda, então um saldo insuficiente derruba a venda
-        // inteira junto (nada de venda registrada com resgate parcial).
+        // Balance validation happens here (not earlier): inside the same sale
+        // transaction, so an insufficient balance takes down the whole sale
+        // with it (never a sale recorded with a partial redemption).
         await this.loyaltyService.redeemTx(tx, {
           tenantId,
           customerId: input.customerId!,
@@ -227,9 +228,10 @@ export class SalesService {
         })),
       });
 
-      // Ganho é calculado sobre o total líquido (já com desconto e resgate
-      // aplicados) e só depois que os pagamentos foram aprovados — cancelar
-      // por pagamento recusado não deixa pontos "fantasma" no cliente.
+      // Points earned are calculated on the net total (after discount and
+      // redemption are applied) and only once payments have been approved —
+      // canceling due to a declined payment doesn't leave "phantom" points on
+      // the customer.
       let pointsEarned = 0;
       if (input.customerId) {
         pointsEarned = await this.loyaltyService.earnTx(tx, {
@@ -266,9 +268,9 @@ export class SalesService {
     });
   }
 
-  // Usado pelo replay de idempotência em create() — mesmo racional de
-  // findByIdOrThrow, mas buscando pela chave que o cliente conhece (ele não
-  // tem o id gerado pelo servidor até a primeira resposta chegar).
+  // Used by the idempotency replay in create() — same rationale as
+  // findByIdOrThrow, but looking up by the key the client knows (it doesn't
+  // have the server-generated id until the first response arrives).
   async findByClientSaleId(tenantId: string, clientSaleId: string): Promise<SaleWithDetails | null> {
     return runWithTenant(this.db, tenantId, (tx) => this.loadDetailsByClientSaleIdTx(tx, tenantId, clientSaleId));
   }

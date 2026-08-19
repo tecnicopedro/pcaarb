@@ -6,9 +6,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { LoyaltyService } from './loyalty.service';
 
-// Fidelidade é uma extensão de Cadastros de cliente — mesmo CASL subject
-// ('Customer'), não um subject novo: quem já gerencia/lê clientes
-// gerencia/lê o programa de pontos deles.
+// Loyalty is an extension of customer records — same CASL subject
+// ('Customer'), not a new one: whoever already manages/reads customers
+// manages/reads their points program.
 @ApiTags('loyalty')
 @ApiBearerAuth()
 @Controller()

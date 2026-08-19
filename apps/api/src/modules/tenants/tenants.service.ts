@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: needed for NestJS to inject via emitDecoratorMetadata.
 import { ConfigService } from '@nestjs/config';
 import { eq, sql } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
@@ -22,7 +22,7 @@ export class TenantsService {
     return tenant;
   }
 
-  /** Cria o tenant e seu usuário owner numa única transação — Fase 0: onboarding self-service. */
+  /** Creates the tenant and its owner user in a single transaction — Phase 0: self-service onboarding. */
   async registerWithOwner(
     input: RegisterTenantInput,
   ): Promise<{ tenant: TenantRow; owner: UserRow }> {
@@ -77,14 +77,15 @@ export class TenantsService {
         throw new Error('Falha ao criar usuário owner');
       }
 
-      // Toda venda/caixa exige uma loja — tenant nasce com uma (mesmo em
-      // plano Starter/Profissional, que não permitem criar uma 2ª). Ver
-      // stores.schema.ts e StoresService.create (gate por plano).
-      // stores tem RLS (é dado de negócio, diferente de tenants/users) — ao
-      // contrário do resto deste método, que roda fora de runWithTenant
-      // porque o tenant ainda não existia, este insert precisa do contexto
-      // setado manualmente na mesma transação (mesmo mecanismo de
-      // tenant-context.ts, só que sem abrir uma transação nova).
+      // Every sale/cash register requires a store — a tenant is born with
+      // one (even on the Starter/Profissional plan, which doesn't allow
+      // creating a 2nd). See stores.schema.ts and StoresService.create
+      // (plan gating).
+      // stores has RLS (it's business data, unlike tenants/users) — unlike
+      // the rest of this method, which runs outside runWithTenant because
+      // the tenant didn't exist yet, this insert needs the context set
+      // manually within the same transaction (same mechanism as
+      // tenant-context.ts, just without opening a new transaction).
       await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenant.id}, true)`);
       const [store] = await tx.insert(stores).values({ tenantId: tenant.id, name: input.companyName }).returning();
       if (!store) {

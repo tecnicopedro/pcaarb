@@ -6,16 +6,16 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { useState } from 'react';
 import { Toaster } from 'sonner';
 
-// Chaves cujo cache sobrevive a um reload/aba nova — é o que deixa o PDV
-// mostrar preço/estoque/caixa aberto na hora, mesmo offline, em vez de ficar
-// preso esperando uma rede que não existe (ver painel/pdv/page.tsx). Lista
-// fechada de propósito: não faz sentido guardar em localStorage o cache de
-// telas que não precisam funcionar offline.
+// Keys whose cache survives a reload/new tab — this is what lets the PDV
+// show price/stock/open cash session instantly, even offline, instead of
+// getting stuck waiting for a network that doesn't exist (see painel/pdv/page.tsx).
+// Deliberately closed list: it doesn't make sense to store in localStorage the
+// cache of screens that don't need to work offline.
 const PERSISTED_QUERY_KEY_PREFIXES = ['users', 'current-cash-session', 'products', 'customers', 'loyalty-program'];
 
-// Muda só se a FORMA do que é persistido mudar (ex: um campo novo obrigatório
-// que dado velho não tem) — invalida qualquer cache salvo por uma versão
-// anterior deste código em vez de deixar o app tentar ler um formato errado.
+// Changes only if the SHAPE of what's persisted changes (e.g. a new required
+// field that old data doesn't have) — invalidates any cache saved by a
+// previous version of this code instead of letting the app try to read a wrong format.
 const PERSIST_BUSTER = 'v1';
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -27,9 +27,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   if (!persister) {
-    // SSR/primeira renderização no servidor: sem localStorage, não tem o que
-    // persistir — mesmo QueryClient, só sem o wrapper de persistência (que
-    // exige um storage síncrono do browser pra existir).
+    // SSR/first render on the server: no localStorage, nothing to persist —
+    // same QueryClient, just without the persistence wrapper (which requires
+    // a synchronous browser storage to exist).
     return (
       <QueryClientProvider client={queryClient}>
         {children}

@@ -33,8 +33,8 @@ export async function apiFetch<TResponse>(
   return data as TResponse;
 }
 
-// Downloads (CSV etc.) não são JSON — o backend manda Content-Disposition
-// com o nome do arquivo, então lemos daqui em vez de fixar um nome no front.
+// Downloads (CSV etc.) aren't JSON — the backend sends Content-Disposition
+// with the file name, so we read it from there instead of hardcoding a name on the frontend.
 export async function apiDownload(path: string, accessToken: string): Promise<void> {
   const response = await fetch(`${API_URL}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}` },

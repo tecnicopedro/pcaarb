@@ -8,19 +8,19 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { BillingService } from './billing.service';
 
-// @BypassTenantStatus() nos quatro: um tenant bloqueado por inadimplência
-// precisa conseguir ver a fatura e reativar a assinatura — sem isso o
-// TenantStatusGuard global bloquearia até o próprio endpoint de pagamento.
-// @Roles('owner') nos que mudam dinheiro/compromisso: é decisão de dono do
-// negócio, não gestão operacional — por isso role direto, não subject CASL.
-// @Roles('owner', 'admin') nos dois de leitura: achado de revisão de
-// segurança (2026-08-18) — sem nenhum @Roles/@CheckAbilities, os dois
-// endpoints de GET ficavam de fato abertos pra qualquer papel autenticado
-// do tenant (RolesGuard e AbilityGuard são "no-op" quando a rota não
-// declara nada, ver seus próprios comentários), deixando operador_caixa/
-// financeiro verem plano/preço/histórico de cobrança — informação de
-// negócio que este mesmo arquivo já trata como domínio do dono/admin, não
-// operacional.
+// @BypassTenantStatus() on all four: a tenant blocked for non-payment still
+// needs to be able to view the invoice and reactivate the subscription —
+// without this the global TenantStatusGuard would block even the payment
+// endpoint itself. @Roles('owner') on the ones that move money/commitment:
+// that's a business-owner decision, not operational management — hence a
+// direct role check, not a CASL subject. @Roles('owner', 'admin') on the two
+// read endpoints: security review finding (2026-08-18) — with no
+// @Roles/@CheckAbilities at all, the two GET endpoints were effectively open
+// to any authenticated role in the tenant (RolesGuard and AbilityGuard are a
+// no-op when the route declares nothing, see their own comments), letting
+// operador_caixa/financeiro see the plan/price/billing history — business
+// information this same file already treats as owner/admin territory, not
+// operational.
 @ApiTags('billing')
 @ApiBearerAuth()
 @Controller('billing')

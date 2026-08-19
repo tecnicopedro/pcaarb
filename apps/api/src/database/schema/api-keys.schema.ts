@@ -2,13 +2,13 @@ import { pgTable, uuid, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 
-// Sem RLS, de propósito — mesmo motivo de users/tenants/refresh_tokens (ver
-// tenant-context.ts): validar uma chave acontece ANTES de qualquer contexto
-// de tenant existir (o guard de auth só sabe o tenant DEPOIS de achar a
-// chave pelo hash), então RLS aqui bloquearia a própria autenticação.
-// Isolamento entre tenants nas rotas de gestão (listar/criar/revogar) é
-// garantido pelo filtro explícito de tenant_id em ApiKeysService, mesmo
-// padrão de UsersService.listByTenant.
+// No RLS, on purpose — same reason as users/tenants/refresh_tokens (see
+// tenant-context.ts): validating a key happens BEFORE any tenant context
+// exists (the auth guard only knows the tenant AFTER finding the key by
+// its hash), so RLS here would block authentication itself.
+// Isolation between tenants on the management routes (list/create/revoke) is
+// guaranteed by the explicit tenant_id filter in ApiKeysService, the same
+// pattern as UsersService.listByTenant.
 export const apiKeys = pgTable(
   'api_keys',
   {
@@ -16,20 +16,20 @@ export const apiKeys = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    // Conta de serviço vinculada (ver users.schema.ts) — é o "quem" que a
-    // chave impersona pro resto do sistema (CASL, FKs de auditoria etc.).
+    // Linked service account (see users.schema.ts) — it's the "who" that the
+    // key impersonates for the rest of the system (CASL, audit FKs, etc.).
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    // Prefixo em texto puro (ex.: "pcaarb_live_a1b2c3d4") só pra exibir/
-    // identificar a chave na UI sem nunca guardar o segredo completo.
+    // Plain-text prefix (e.g. "pcaarb_live_a1b2c3d4") only to display/
+    // identify the key in the UI without ever storing the full secret.
     keyPrefix: text('key_prefix').notNull(),
-    // SHA-256 do segredo completo — não bcrypt: a chave já nasce com 192 bits
-    // de entropia aleatória (não é senha humana adivinhável), então um hash
-    // rápido e determinístico é o padrão certo pra esse caso (mesmo racional
-    // do GitHub/Stripe pra token de API), e permite buscar por igualdade
-    // direta sem iterar linha por linha comparando com bcrypt.compare.
+    // SHA-256 of the full secret — not bcrypt: the key is already born with
+    // 192 bits of random entropy (not a guessable human password), so a fast,
+    // deterministic hash is the right choice for this case (the same
+    // rationale GitHub/Stripe use for API tokens), and it allows lookup by
+    // direct equality without iterating row by row comparing with bcrypt.compare.
     keyHash: text('key_hash').notNull(),
     createdByUserId: uuid('created_by_user_id')
       .notNull()

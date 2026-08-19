@@ -29,7 +29,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from './users.service';
 
-// passwordHash nunca sai da API.
+// passwordHash never leaves the API.
 function toSafeUser({ passwordHash: _passwordHash, ...safeUser }: UserRow) {
   return safeUser;
 }
@@ -44,8 +44,8 @@ export class UsersController {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  // Sem @CheckAbilities: ler a própria identidade não é gestão de usuários,
-  // todo papel pode ver quem é e em que empresa está.
+  // No @CheckAbilities: reading your own identity isn't user management,
+  // every role can see who they are and which company they're in.
   @Get('me')
   async me(@CurrentUser() user: JwtPayload) {
     const [me, tenant] = await Promise.all([
@@ -88,7 +88,7 @@ export class UsersController {
       { id: inviter.id, name: inviter.name, role: inviter.role },
       body,
     );
-    // tokenHash nunca sai da API — só o adapter de e-mail vê o token cru.
+    // tokenHash never leaves the API — only the email adapter sees the raw token.
     const { tokenHash: _tokenHash, ...safeInvite } = invite;
     return safeInvite;
   }
@@ -100,9 +100,9 @@ export class UsersController {
     return this.usersService.revokeInvite(user.tenantId, id);
   }
 
-  // Subject 'UserAccess' (não 'User'): trocar papel concede controle
-  // equivalente a admin, então não pode ser um alvo de override pontual —
-  // ver exclusão em permissionSubjectSchema (packages/shared).
+  // Subject 'UserAccess' (not 'User'): changing a role grants admin-equivalent
+  // control, so it can't be the target of a one-off override — see the
+  // exclusion in permissionSubjectSchema (packages/shared).
   @CheckAbilities({ action: 'update', subject: 'UserAccess' })
   @Patch(':id/role')
   async updateRole(
@@ -110,8 +110,8 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(updateUserRoleSchema)) body: UpdateUserRoleInput,
   ) {
-    // O papel do JWT pode estar desatualizado (ex.: usuário rebaixado após o
-    // token ser emitido) — relê do banco pra decidir permissões de owner.
+    // The JWT's role may be stale (e.g. user demoted after the token was
+    // issued) — re-read from the database to decide owner permissions.
     const acting = await this.usersService.findById(user.sub);
     if (!acting) {
       throw new UnauthorizedException('Usuário autenticado não encontrado');
@@ -128,8 +128,8 @@ export class UsersController {
     return toSafeUser(updated);
   }
 
-  // Mesmo subject de updateRole — desativar acesso é tão sensível quanto
-  // trocar papel. Nunca apaga de verdade, ver UsersService.deactivate.
+  // Same subject as updateRole — deactivating access is as sensitive as
+  // changing a role. Never a hard delete, see UsersService.deactivate.
   @CheckAbilities({ action: 'update', subject: 'UserAccess' })
   @Delete(':id')
   async deactivate(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {

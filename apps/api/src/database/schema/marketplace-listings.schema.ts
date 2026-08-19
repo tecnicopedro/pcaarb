@@ -5,9 +5,9 @@ import { products } from './products.schema';
 
 export const marketplaceListingStatusEnum = pgEnum('marketplace_listing_status', ['pending', 'synced', 'error']);
 
-// Vínculo entre um produto do PCAARB e sua publicação em um canal externo —
-// é essa tabela que resolve um pedido importado (externalProductId) de volta
-// pro produto local, pra decrementar o estoque certo.
+// Link between a PCAARB product and its listing on an external channel —
+// this is the table that resolves an imported order (externalProductId) back
+// to the local product, to decrement the correct stock.
 export const marketplaceListings = pgTable(
   'marketplace_listings',
   {
@@ -21,7 +21,7 @@ export const marketplaceListings = pgTable(
     productId: uuid('product_id')
       .notNull()
       .references(() => products.id, { onDelete: 'cascade' }),
-    // Nulo até a primeira sincronização com sucesso.
+    // Null until the first successful sync.
     externalProductId: text('external_product_id'),
     status: marketplaceListingStatusEnum('status').notNull().default('pending'),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
@@ -31,9 +31,9 @@ export const marketplaceListings = pgTable(
   },
   (table) => ({
     channelProductUnique: uniqueIndex('marketplace_listings_channel_product_unique').on(table.channelId, table.productId),
-    // NULL é distinto no Postgres — várias listagens 'pending' (sem
-    // externalProductId ainda) convivem, mas uma vez sincronizada, o id
-    // externo não pode apontar pra dois produtos locais ao mesmo tempo.
+    // NULL is distinct in Postgres — several 'pending' listings (without
+    // externalProductId yet) can coexist, but once synced, the external id
+    // can't point to two local products at the same time.
     channelExternalProductUnique: uniqueIndex('marketplace_listings_channel_external_product_unique').on(
       table.channelId,
       table.externalProductId,

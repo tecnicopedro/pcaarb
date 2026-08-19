@@ -1,17 +1,17 @@
 import { pgTable, uuid, text, timestamp } from 'drizzle-orm/pg-core';
 import { users } from './users.schema';
 
-// Tabela de identidade, mesmo grupo de refresh_tokens/user_invites: localizar
-// o token acontece antes de qualquer contexto de tenant existir, então fica
-// fora do RLS de propósito. Isolamento vem do id (UUID) + hash do token.
+// Identity table, same group as refresh_tokens/user_invites: locating
+// the token happens before any tenant context exists, so it's kept
+// outside RLS on purpose. Isolation comes from the id (UUID) + token hash.
 export const passwordResetTokens = pgTable('password_reset_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   tokenHash: text('token_hash').notNull(),
-  // TTL bem mais curto que o convite (7 dias) — fluxo de segurança de uma
-  // conta já existente, não onboarding.
+  // Much shorter TTL than the invite (7 days) — a security flow for an
+  // account that already exists, not onboarding.
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   usedAt: timestamp('used_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

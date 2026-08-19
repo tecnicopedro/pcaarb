@@ -14,10 +14,10 @@ export const sales = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
-    // Denormalizado a partir de cash_sessions.store_id no momento da venda
-    // (mesmo racional de sale_items denormalizar nome/preço do produto) —
-    // evita join pra relatório consolidado por loja, que é o valor real do
-    // plano Multi-loja.
+    // Denormalized from cash_sessions.store_id at the time of the sale
+    // (same rationale as sale_items denormalizing the product's name/price) —
+    // avoids a join for the consolidated per-store report, which is the real
+    // value of the Multi-store plan.
     storeId: uuid('store_id')
       .notNull()
       .references(() => stores.id),
@@ -32,12 +32,13 @@ export const sales = pgTable(
     subtotalCents: integer('subtotal_cents').notNull(),
     discountCents: integer('discount_cents').notNull().default(0),
     totalCents: integer('total_cents').notNull(),
-    // Gerado no cliente (não no servidor) no momento em que o operador finaliza
-    // a venda no PDV offline — é a chave de idempotência do PWA: sincronizar a
-    // mesma venda enfileirada duas vezes (retry de rede, service worker
-    // acordando de novo) devolve a venda já criada em vez de vender duas
-    // vezes. Nulo em toda venda "normal" (online, sem fila) — NULL nunca
-    // colide com NULL no índice único, então não muda nada pro fluxo existente.
+    // Generated on the client (not the server) at the moment the operator
+    // finalizes the sale on the offline PDV — it's the PWA's idempotency key:
+    // syncing the same queued sale twice (network retry, service worker
+    // waking up again) returns the sale already created instead of selling
+    // twice. Null on every "normal" sale (online, no queue) — NULL never
+    // collides with NULL in the unique index, so it doesn't change anything
+    // for the existing flow.
     clientSaleId: uuid('client_sale_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

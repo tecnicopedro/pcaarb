@@ -4,31 +4,31 @@ export const permissionActionSchema = z.enum(['manage', 'create', 'read', 'updat
 
 export type PermissionAction = z.infer<typeof permissionActionSchema>;
 
-// Espelha o `Subject` do CASL (apps/api/src/common/casl/ability.factory.ts),
-// exceto 'all', 'Tenant', 'UserAccess', 'Integration' e 'AuditLog' — override não pode
-// conceder acesso de nível tenant, o wildcard, nem convidar/trocar papel de
-// usuário ('UserAccess'), pra não virar um caminho de escalonamento de
-// privilégio por fora do papel de owner/admin. 'User' aqui só cobre leitura
-// de identidade (listar usuários/convites); UserAccess é gerido só pelo
-// papel base, nunca por override — ver ability.factory.ts.
+// Mirrors CASL's `Subject` (apps/api/src/common/casl/ability.factory.ts),
+// except 'all', 'Tenant', 'UserAccess', 'Integration' and 'AuditLog' — an override
+// must not grant tenant-level access, the wildcard, or the ability to
+// invite/change a user's role ('UserAccess'), so it can't become a
+// privilege-escalation path outside the owner/admin role. 'User' here only
+// covers identity reads (listing users/invites); UserAccess is managed only
+// by the base role, never by override — see ability.factory.ts.
 //
-// 'Integration' foi excluído depois de um achado de revisão de segurança
-// (2026-08-18): é o mesmo subject que gate POST /api-keys, que mint uma
-// credencial durável com o `role` que o chamador pedir (só bloqueava
-// role:'owner' por quem não é owner). Um financeiro/operador_caixa com um
-// override pontual de 'Integration' — algo que soa inócuo, tipo "deixa essa
-// pessoa configurar a integração do marketplace" — conseguia usar a mesma
-// permissão pra mintar uma chave de API com role:'admin', ganhando acesso
-// equivalente a admin de forma durável. Mesma classe de bug que motivou
-// excluir 'UserAccess' acima; mesma correção.
+// 'Integration' was excluded after a security review finding
+// (2026-08-18): it's the same subject that gates POST /api-keys, which mints
+// a durable credential with whatever `role` the caller requests (it only
+// blocked role:'owner' for non-owners). A financeiro/operador_caixa with a
+// one-off 'Integration' override — something that sounds harmless, like
+// "let this person configure the marketplace integration" — could use that
+// same permission to mint an API key with role:'admin', gaining durable
+// admin-equivalent access. Same class of bug that motivated excluding
+// 'UserAccess' above; same fix.
 //
-// 'AuditLog' é excluído desde a criação do subject (não é correção de um
-// achado) — ler o próprio log de auditoria de ações sensíveis é owner-only
-// por natureza, mesmo raciocínio de 'Tenant': delegar isso por override
-// deixaria um admin conceder a si mesmo (ou a outro usuário) visibilidade
-// sobre ações que o próprio dono do negócio talvez não quisesse expor.
-// 'DataPrivacy' segue o mesmo tratamento, mesmo motivo: exportar/anonimizar
-// dado pessoal de cliente em massa é decisão de dono do negócio.
+// 'AuditLog' has been excluded since the subject was created (not a fix for
+// a finding) — reading the audit log of sensitive actions is owner-only by
+// nature, same reasoning as 'Tenant': delegating this via override would let
+// an admin grant themselves (or another user) visibility into actions the
+// business owner might not want exposed.
+// 'DataPrivacy' gets the same treatment, for the same reason: bulk
+// export/anonymization of customer personal data is a business-owner decision.
 export const permissionSubjectSchema = z.enum([
   'Sale',
   'SaleReturn',

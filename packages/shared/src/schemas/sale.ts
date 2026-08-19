@@ -7,9 +7,10 @@ export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
 export const saleStatusSchema = z.enum(['completed', 'canceled']);
 
-// Venda por peso/fracionada (ex.: hortifruti) fica para quando o público-alvo
-// exigir — o roadmap mira mercearia/loja/pet shop/farmácia/conveniência com
-// venda por unidade inteira (ver docs/01). Quantidade é sempre inteira.
+// Sale by weight/fractional quantity (e.g. produce) is deferred until the
+// target audience needs it — the roadmap targets grocery/retail/pet shop/
+// pharmacy/convenience stores selling by whole unit (see docs/01). Quantity
+// is always an integer.
 export const createSaleItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().positive('Quantidade precisa ser maior que zero'),
@@ -28,14 +29,14 @@ export const createSaleSchema = z.object({
   customerId: z.string().uuid().nullable().optional(),
   items: z.array(createSaleItemSchema).min(1, 'A venda precisa de ao menos um item'),
   discountCents: z.number().int().nonnegative().optional().default(0),
-  // Só tem efeito com customerId informado — resgate de pontos de fidelidade
-  // exige um cliente identificado na venda.
+  // Only takes effect when customerId is provided — redeeming loyalty points
+  // requires a customer identified on the sale.
   pointsToRedeem: z.number().int().nonnegative().optional().default(0),
   payments: z.array(createSalePaymentSchema).min(1, 'Informe ao menos uma forma de pagamento'),
-  // Gerado no cliente (crypto.randomUUID()) só pelo PDV offline, no momento
-  // em que a venda é enfileirada — chave de idempotência pro sync: reenviar
-  // a mesma venda (retry, fila processada duas vezes) devolve a venda já
-  // criada em vez de vender de novo. Ausente numa venda online normal.
+  // Generated client-side (crypto.randomUUID()) only by the offline PDV, at
+  // the moment the sale is queued — idempotency key for sync: resending the
+  // same sale (retry, queue processed twice) returns the sale already
+  // created instead of selling again. Absent on a normal online sale.
   clientSaleId: z.string().uuid().optional(),
 });
 
@@ -94,8 +95,8 @@ export const saleSchema = z.object({
 
 export type Sale = z.infer<typeof saleSchema>;
 
-// Formato de GET /sales (lista): sem items/payments/fiscalDocument, que só
-// vêm no detalhe (GET /sales/:id) — evita N+1 pra montar o histórico.
+// Shape for GET /sales (list): without items/payments/fiscalDocument, which
+// only come in the detail view (GET /sales/:id) — avoids N+1 to build the history.
 export const saleListItemSchema = saleSchema.omit({
   items: true,
   payments: true,

@@ -162,9 +162,10 @@ export class PurchaseOrdersService {
           });
         }
 
-        // Último custo de compra vira o custo do produto — não bloqueia o
-        // recebimento se der errado (produto pode ter sido removido do
-        // catálogo entre o pedido e o recebimento), só não atualiza o custo.
+        // The latest purchase cost becomes the product's cost — this
+        // doesn't block the receipt if it fails (the product may have been
+        // removed from the catalog between the order and the receipt), it
+        // just skips updating the cost.
         await tx.update(products).set({ costPriceCents: item.unitCostCents }).where(eq(products.id, item.productId));
       }
 

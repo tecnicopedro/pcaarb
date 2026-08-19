@@ -2,20 +2,20 @@ import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 
-// Registro de ações sensíveis (troca de papel, override de permissão,
-// assinatura/cancelamento, devolução de venda, reset de senha, bloqueio de
-// conta). Alimentado por chamadas explícitas nos pontos sensíveis já
-// identificados — não um interceptor global automático, pra manter a lista
-// do que é auditado intencional e nunca logar corpo de requisição com
-// senha/token por engano.
+// Log of sensitive actions (role change, permission override,
+// subscription/cancellation, sale return, password reset, account
+// lockout). Populated by explicit calls at the sensitive points already
+// identified — not an automatic global interceptor, to keep the list
+// of what's audited intentional and never accidentally log a request
+// body containing a password/token.
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
-  // Nula quando a ação não tem um usuário autenticado por trás (ex.:
-  // bloqueio de conta disparado por tentativas de login — não sabemos quem
-  // está tentando, só qual conta é o alvo).
+  // Null when the action doesn't have an authenticated user behind it (e.g.
+  // account lockout triggered by login attempts — we don't know who is
+  // trying, only which account is the target).
   actorUserId: uuid('actor_user_id').references(() => users.id, { onDelete: 'set null' }),
   action: text('action').notNull(),
   targetType: text('target_type').notNull(),

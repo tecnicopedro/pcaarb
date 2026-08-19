@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException, type CanActivate, type ExecutionContext } from '@nestjs/common';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: needed for NestJS to inject via emitDecoratorMetadata.
 import { Reflector } from '@nestjs/core';
 import type { JwtPayload, Role } from '@pcaarb/shared';
 import { ROLES_KEY } from '../decorators/roles.decorator';

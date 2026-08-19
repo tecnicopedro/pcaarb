@@ -4,10 +4,10 @@ import { marketplaceChannels } from './marketplace-channels.schema';
 
 export const marketplaceOrderStatusEnum = pgEnum('marketplace_order_status', ['imported', 'needs_attention']);
 
-// Um pedido feito no marketplace, puxado via MarketplaceProvider.fetchNewOrders.
-// A unique em (channelId, externalOrderId) é a chave de idempotência: um
-// retry de sincronização que devolva o mesmo pedido de novo não duplica o
-// abate de estoque (ver MarketplaceOrdersService.pullOrders).
+// An order placed on the marketplace, pulled via MarketplaceProvider.fetchNewOrders.
+// The unique on (channelId, externalOrderId) is the idempotency key: a
+// sync retry that returns the same order again doesn't duplicate the
+// stock deduction (see MarketplaceOrdersService.pullOrders).
 export const marketplaceOrders = pgTable(
   'marketplace_orders',
   {
@@ -21,9 +21,9 @@ export const marketplaceOrders = pgTable(
     externalOrderId: text('external_order_id').notNull(),
     totalCents: integer('total_cents').notNull(),
     status: marketplaceOrderStatusEnum('status').notNull(),
-    // Preenchido só quando status = 'needs_attention': produto não mapeado,
-    // inativo, ou estoque insuficiente — nunca fica em branco quando o
-    // pedido não foi aplicado, pra nunca precisar adivinhar o motivo depois.
+    // Filled in only when status = 'needs_attention': unmapped product,
+    // inactive, or insufficient stock — never left blank when the
+    // order wasn't applied, so the reason never has to be guessed later.
     issue: text('issue'),
     importedAt: timestamp('imported_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

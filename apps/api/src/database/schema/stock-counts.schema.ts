@@ -2,9 +2,9 @@ import { pgTable, uuid, text, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 
-// open = contagem em andamento, itens ainda podem ser preenchidos; completed =
-// finalizada, gerou os ajustes de estoque (ver StockCountsService.finalize);
-// canceled = só a partir de open, não mexe em estoque.
+// open = count in progress, items can still be filled in; completed =
+// finalized, generated the stock adjustments (see StockCountsService.finalize);
+// canceled = only from open, doesn't touch stock.
 export const stockCountStatusEnum = pgEnum('stock_count_status', ['open', 'completed', 'canceled']);
 
 export const stockCounts = pgTable('stock_counts', {

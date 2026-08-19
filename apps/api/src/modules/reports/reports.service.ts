@@ -55,8 +55,9 @@ interface ResolvedRange {
   toDate: Date;
 }
 
-// Sem período informado, mostra os últimos 30 dias — janela padrão razoável
-// pra um lojista abrir o relatório e já ver algo útil sem precisar configurar nada.
+// With no period given, shows the last 30 days — a reasonable default
+// window for a merchant to open the report and already see something
+// useful without having to configure anything.
 const DEFAULT_RANGE_DAYS = 30;
 
 function resolveRange(query: ReportPeriodQuery): ResolvedRange {
@@ -108,7 +109,7 @@ export class ReportsService {
     return items.map((item) => {
       const revenueSharePercent = (item.revenueCents / totalRevenueCents) * 100;
       cumulativeSharePercent += revenueSharePercent;
-      // Curva ABC clássica: A cobre até 80% da receita acumulada, B até 95%, C o resto.
+      // Classic ABC curve: A covers up to 80% of cumulative revenue, B up to 95%, C the rest.
       const klass: AbcCurveItem['class'] = cumulativeSharePercent <= 80 ? 'A' : cumulativeSharePercent <= 95 ? 'B' : 'C';
       return { ...item, revenueSharePercent, cumulativeSharePercent, class: klass };
     });
@@ -149,10 +150,10 @@ export class ReportsService {
       .sort((a, b) => b.revenueCents - a.revenueCents);
   }
 
-  // Visão consolidada multi-loja — o valor real do plano Multi-loja (ver
-  // PRECOS-E-CUSTOS.md). Mesmo formato de sellerRanking, agrupado por loja
-  // em vez de vendedor; funciona igual para tenant de loja única (retorna
-  // uma linha só).
+  // Consolidated multi-store view — the real value of the Multi-store plan
+  // (see PRECOS-E-CUSTOS.md). Same format as sellerRanking, grouped by
+  // store instead of seller; works the same for a single-store tenant
+  // (returns just one row).
   async storeRanking(tenantId: string, query: ReportPeriodQuery): Promise<StoreRankingItem[]> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
@@ -188,9 +189,10 @@ export class ReportsService {
       .sort((a, b) => b.revenueCents - a.revenueCents);
   }
 
-  // Comissão calculada sob demanda (não é ledger): agrega a receita por
-  // vendedor no período e aplica a taxa resolvida (override individual em
-  // seller_commission_rates, senão a taxa padrão do tenant).
+  // Commission calculated on demand (not a ledger): aggregates revenue by
+  // seller for the period and applies the resolved rate (individual
+  // override in seller_commission_rates, otherwise the tenant's default
+  // rate).
   async commissionReport(tenantId: string, query: ReportPeriodQuery): Promise<CommissionReport> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
@@ -240,9 +242,10 @@ export class ReportsService {
     };
   }
 
-  // DRE simplificado em regime de caixa (só o que já foi efetivamente pago),
-  // não de competência — mais simples e mais honesto pro estágio atual do
-  // produto, que não tem conciliação bancária real ainda.
+  // Simplified DRE (income statement) on a cash basis (only what has
+  // actually been paid), not accrual — simpler and more honest for the
+  // product's current stage, which doesn't have real bank reconciliation
+  // yet.
   async dre(tenantId: string, query: ReportPeriodQuery): Promise<DreSummary> {
     const range = resolveRange(query);
 
@@ -302,12 +305,11 @@ export class ReportsService {
     };
   }
 
-  // Exportação para contabilidade — não é escrituração fiscal (SPED), é o
-  // dado bruto (vendas com forma de pagamento e status do documento fiscal,
-  // contas pagas/a pagar) num formato que qualquer contador consegue importar
-  // na ferramenta dele. Emitir SPED de verdade exige validação de quem
-  // entende a legislação tributária caso a caso; isso aqui é seguro de
-  // automatizar, aquilo não é.
+  // Export for accounting — not fiscal bookkeeping (SPED), it's raw data
+  // (sales with payment method and fiscal document status, paid/payable
+  // accounts) in a format any accountant can import into their own tool.
+  // Actually issuing SPED requires validation from someone who understands
+  // tax law case by case; this is safe to automate, that isn't.
   async exportSalesCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
@@ -389,9 +391,9 @@ export class ReportsService {
 
   async exportFinanceCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
     const range = resolveRange(query);
-    // Aqui usa data de vencimento (due_date), não paidAt como o DRE — a
-    // exportação contábil precisa mostrar tudo que está lançado no período
-    // (pago, pendente ou cancelado), não só o que já liquidou.
+    // Here it uses the due date (due_date), not paidAt like the DRE — the
+    // accounting export needs to show everything booked in the period
+    // (paid, pending, or canceled), not just what has already settled.
     const entries = await runWithTenant(this.db, tenantId, (tx) =>
       tx
         .select()
@@ -450,12 +452,13 @@ export class ReportsService {
     return toCsv(header, rows);
   }
 
-  // Previsão de demanda por média móvel simples (quantidade vendida no
-  // período / dias do período) — não é um modelo de série temporal com
-  // sazonalidade/tendência, é uma heurística honesta sobre o que o PDV já
-  // registra. Produto sem venda no período e com saldo positivo não entra
-  // (não há dado nenhum pra sugerir algo); saldo zerado sempre entra, mesmo
-  // sem venda recente, porque "está zerado" já é acionável por si.
+  // Demand forecast via simple moving average (quantity sold in the period
+  // / days in the period) — not a time-series model with
+  // seasonality/trend, it's an honest heuristic based on what the PDV
+  // already records. A product with no sales in the period and a positive
+  // stock balance is excluded (there's no data at all to base a suggestion
+  // on); a zero balance is always included, even without a recent sale,
+  // because "it's at zero" is already actionable on its own.
   async reorderSuggestions(tenantId: string, query: ReorderSuggestionQuery): Promise<ReorderSuggestionItem[]> {
     const range = resolveRange(query);
     const coverageDays = query.coverageDays ?? 14;
@@ -513,9 +516,10 @@ export class ReportsService {
     });
   }
 
-  // Sugestão de preço por margem-alvo — heurística de precificação (custo /
-  // (1 - margem)), não elasticidade de mercado ou concorrência. Só entra
-  // produto com custo cadastrado (sem custo não há como calcular margem).
+  // Price suggestion based on target margin — a pricing heuristic (cost /
+  // (1 - margin)), not market elasticity or competition. Only includes
+  // products with a registered cost (without a cost there's no way to
+  // calculate margin).
   async pricingSuggestions(tenantId: string, query: PricingSuggestionQuery): Promise<PricingSuggestionItem[]> {
     const targetMarginPercent = query.targetMarginPercent ?? 30;
 
@@ -560,10 +564,11 @@ export class ReportsService {
     );
   }
 
-  // Venda com devolução parcial continua status='completed' (só devolução
-  // total vira 'canceled', já excluída por completedSalesInRange) — sem isso,
-  // toda receita/ranking/comissão continuaria contando o valor cheio da venda
-  // mesmo depois de parte dele ter sido efetivamente devolvida ao cliente.
+  // A sale with a partial return keeps status='completed' (only a full
+  // return becomes 'canceled', already excluded by completedSalesInRange)
+  // — without this, all revenue/ranking/commission figures would keep
+  // counting the sale's full amount even after part of it was actually
+  // refunded to the customer.
   private async refundedCentsBySale(tenantId: string, saleIds: string[]): Promise<Map<string, number>> {
     if (saleIds.length === 0) {
       return new Map();
@@ -581,9 +586,9 @@ export class ReportsService {
     return map;
   }
 
-  // Mesmo raciocínio de refundedCentsBySale, na granularidade de linha —
-  // usado por ranking de produto e sugestão de reposição, que agregam por
-  // saleItemId/productId em vez de por venda inteira.
+  // Same reasoning as refundedCentsBySale, at line-item granularity — used
+  // by product ranking and reorder suggestions, which aggregate by
+  // saleItemId/productId instead of by whole sale.
   private async returnedByLineItem(
     tenantId: string,
     saleItemIds: string[],

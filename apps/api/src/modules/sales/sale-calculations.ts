@@ -9,9 +9,9 @@ export interface SaleTotals {
 }
 
 /**
- * Cálculo puro, sem dependência de banco/HTTP — mantém a regra de negócio
- * mais sensível a dinheiro do sistema testável isoladamente e barata de
- * revisar. Todo valor em centavos (inteiro), nunca float.
+ * Pure calculation, no database/HTTP dependency — keeps the system's most
+ * money-sensitive business rule independently testable and cheap to review.
+ * Every value in cents (integer), never a float.
  */
 export function calculateSaleTotals(lines: SaleLine[], discountCents: number, redemptionValueCents = 0): SaleTotals {
   const subtotalCents = lines.reduce((sum, line) => sum + line.priceCents * line.quantity, 0);
@@ -20,10 +20,10 @@ export function calculateSaleTotals(lines: SaleLine[], discountCents: number, re
 }
 
 /**
- * Pontos ganhos são calculados sobre o total efetivamente pago em dinheiro
- * (já líquido de desconto e resgate) — nunca sobre o subtotal bruto. Assim
- * um resgate não "recicla" pontos: gastar pontos não gera mais pontos sobre
- * a parte que eles mesmos pagaram.
+ * Points earned are calculated on the total actually paid in money (already
+ * net of discount and redemption) — never on the gross subtotal. This way a
+ * redemption doesn't "recycle" points: spending points doesn't generate more
+ * points on the part they themselves paid for.
  */
 export function calculatePointsEarned(netPaidCents: number, earnRatePoints: number): number {
   if (netPaidCents <= 0 || earnRatePoints <= 0) {

@@ -38,8 +38,8 @@ const RESOURCE_CONFIG = {
   },
 } as const;
 
-// CPF/CNPJ e e-mail são opcionais no cadastro, mas o campo em branco chega como
-// "" (não undefined) via react-hook-form — só validamos o formato quando preenchido.
+// CPF/CNPJ and e-mail are optional in the registration form, but a blank field
+// arrives as "" (not undefined) via react-hook-form — we only validate the format when it's filled in.
 const partyFormSchema = z.object({
   name: z.string().min(2, 'Nome muito curto').max(160),
   document: z
@@ -61,10 +61,10 @@ function PartySection({ resource }: { resource: Resource }) {
   const meQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const config = RESOURCE_CONFIG[resource];
-  // Exportar/anonimizar dados pessoais (LGPD) só existe pra clientes, e só
-  // pro dono da loja — mesmo gate do backend (subject CASL 'DataPrivacy',
-  // owner-only). Sem essa checagem aqui, outros papéis veriam os botões e
-  // só descobririam que não podem usá-los ao receber um 403.
+  // Exporting/anonymizing personal data (LGPD) only exists for customers, and
+  // only for the store owner — same gate as the backend (CASL subject
+  // 'DataPrivacy', owner-only). Without this check here, other roles would
+  // see the buttons and only find out they can't use them when they get a 403.
   const canManagePrivacy = resource === 'customers' && meQuery.data?.user.role === 'owner';
 
   const listQuery = useQuery({

@@ -14,9 +14,10 @@ export interface SendPasswordResetEmailParams {
 }
 
 /**
- * Abstração de envio de e-mail, mesmo padrão de PaymentProvider/FiscalProvider
- * (ver docs/03): o resto da aplicação fala com essa interface, nunca com o
- * SDK do provedor direto. Trocar de provedor é escrever um adapter novo.
+ * Email-sending abstraction, same pattern as PaymentProvider/FiscalProvider
+ * (see docs/03): the rest of the application talks to this interface, never
+ * directly to the provider's SDK. Switching providers is writing one new
+ * adapter.
  */
 export interface EmailProvider {
   sendInvite(params: SendInviteEmailParams): Promise<void>;

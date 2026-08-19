@@ -28,8 +28,8 @@ export class StockService {
     );
   }
 
-  // Usado pelo SalesService dentro da própria transação da venda, para que o
-  // desconto de estoque e a venda sejam atômicos (ou ambos, ou nenhum).
+  // Used by SalesService inside the sale's own transaction, so the stock
+  // deduction and the sale are atomic (both happen, or neither does).
   async applyMovement(
     tx: Database,
     params: {

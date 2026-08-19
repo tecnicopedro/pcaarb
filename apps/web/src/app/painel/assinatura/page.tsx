@@ -36,18 +36,18 @@ export default function AssinaturaPage() {
   const meQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const canManage = meQuery.data?.user.role === 'owner';
-  // GET /billing/subscription e /billing/invoices exigem owner/admin no
-  // backend (achado de revisão de segurança, 2026-08-18 — antes eram
-  // acessíveis a qualquer papel autenticado). Sem esse gate aqui, financeiro/
-  // operador_caixa navegando pra essa página ficariam vendo as consultas
-  // falharem com 403 sem nenhuma explicação.
+  // GET /billing/subscription and /billing/invoices require owner/admin on
+  // the backend (security review finding, 2026-08-18 — previously accessible
+  // to any authenticated role). Without this gate here, financeiro/
+  // operador_caixa navigating to this page would just see the queries
+  // fail with 403 with no explanation.
   const canView = meQuery.data?.user.role === 'owner' || meQuery.data?.user.role === 'admin';
 
   const subscriptionQuery = useQuery({
     queryKey: ['billing', 'subscription'],
-    // 404 aqui não é erro de verdade, é o estado normal de quem ainda não
-    // assinou (só trial) — tratado como "sem assinatura" em vez de deixar o
-    // react-query cair em retry/erro pra um caso totalmente esperado.
+    // A 404 here isn't a real error, it's the normal state for someone who
+    // hasn't subscribed yet (trial only) — treated as "no subscription"
+    // instead of letting react-query fall into retry/error for a fully expected case.
     queryFn: async () => {
       try {
         return await apiFetch<Subscription>('/billing/subscription', { accessToken: accessToken! });

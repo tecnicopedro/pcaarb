@@ -95,9 +95,9 @@ export const storeRankingItemSchema = z.object({
 
 export type StoreRankingItem = z.infer<typeof storeRankingItemSchema>;
 
-// Previsão de demanda por média móvel simples sobre o período informado —
-// não é um modelo de série temporal (sem sazonalidade/tendência). Honesto
-// pro estágio do produto: melhor uma heurística clara do que fingir "IA".
+// Demand forecast via simple moving average over the given period —
+// not a time-series model (no seasonality/trend). Honest for the product's
+// current stage: better a clear heuristic than pretending it's "AI".
 export const reorderSuggestionQuerySchema = reportPeriodQuerySchema.extend({
   coverageDays: z.coerce.number().int().positive().max(365).optional(),
   alertDays: z.coerce.number().int().positive().max(365).optional(),

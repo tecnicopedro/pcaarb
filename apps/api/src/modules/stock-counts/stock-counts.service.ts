@@ -155,9 +155,10 @@ export class StockCountsService {
         if (!product) {
           continue;
         }
-        // Recalcula contra o saldo atual (não o expectedQuantity, que é só um
-        // retrato de quando a contagem abriu) — assim uma venda que aconteça
-        // durante a contagem não é silenciosamente desfeita pelo ajuste.
+        // Recalculates against the current balance (not expectedQuantity,
+        // which is just a snapshot of when the count was opened) — this
+        // way a sale that happens during the count isn't silently undone
+        // by the adjustment.
         const delta = item.countedQuantity - product.stockQuantity;
         if (delta === 0) {
           continue;

@@ -24,8 +24,9 @@ export class PermissionOverridesService {
   ): Promise<UserPermissionOverrideRow> {
     await this.assertTargetIsOverridable(tenantId, userId);
 
-    // Upsert: uma nova regra pro mesmo (subject, action) substitui a anterior
-    // em vez de acumular duas linhas conflitantes pro mesmo par.
+    // Upsert: a new rule for the same (subject, action) replaces the
+    // previous one instead of accumulating two conflicting rows for the
+    // same pair.
     const [override] = await this.db
       .insert(userPermissionOverrides)
       .values({ tenantId, userId, subject: input.subject, action: input.action, effect: input.effect, createdBy })
@@ -75,9 +76,10 @@ export class PermissionOverridesService {
     return target;
   }
 
-  // Owner nunca é alvo de override — precisa continuar com acesso total
-  // garantido, é a rede de segurança de todo o resto do RBAC (ver regra de
-  // "sempre existe ao menos um owner" em UsersService.updateRole).
+  // Owner is never the target of an override — it needs to keep guaranteed
+  // full access, it's the safety net for the rest of the RBAC system (see
+  // the "there's always at least one owner" rule in
+  // UsersService.updateRole).
   private async assertTargetIsOverridable(tenantId: string, userId: string): Promise<void> {
     const target = await this.assertTargetExists(tenantId, userId);
     if (target.role === 'owner') {

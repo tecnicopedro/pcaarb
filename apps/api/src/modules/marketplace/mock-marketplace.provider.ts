@@ -8,13 +8,14 @@ import type {
 } from './marketplace-provider.interface';
 
 /**
- * Adapter de sandbox: sincronizar produto sempre funciona, e não existem
- * pedidos pendentes (sandbox nunca teve um pedido real feito por lá) — fica
- * no lugar do adapter real (Shopify/Mercado Livre) até termos conta e
- * credenciais com um parceiro, mesmo racional do MockPaymentProvider/
- * MockFiscalProvider. A lógica de importar pedido (idempotência, produto não
- * mapeado, estoque insuficiente) é real e testada via um provider de teste
- * que devolve pedidos fabricados — ver marketplace.e2e-spec.ts.
+ * Sandbox adapter: syncing a product always works, and there are never any
+ * pending orders (the sandbox never had a real order placed through it) —
+ * stands in for the real adapter (Shopify/Mercado Livre) until we have an
+ * account and credentials with a partner, same rationale as
+ * MockPaymentProvider/MockFiscalProvider. The order-import logic
+ * (idempotency, unmapped product, insufficient stock) is real and tested via
+ * a test provider that returns fabricated orders — see
+ * marketplace.e2e-spec.ts.
  */
 @Injectable()
 export class MockMarketplaceProvider implements MarketplaceProvider {

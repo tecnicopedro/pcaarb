@@ -18,11 +18,11 @@ function getServerSnapshot() {
 }
 
 /**
- * navigator.onLine só reflete se a interface de rede está ativa, não se a
- * API realmente responde — mas é o sinal disponível sem custo, e o fallback
- * de qualquer forma é o mesmo: uma falha de fetch em tempo real também
- * enfileira a venda (ver PdvPage). Serve pra decidir a UI (badge, tentar
- * sincronizar ao reconectar), não é a única linha de defesa contra perda de venda.
+ * navigator.onLine only reflects whether the network interface is active, not
+ * whether the API actually responds — but it's the signal available at zero
+ * cost, and the fallback is the same either way: a real-time fetch failure
+ * also queues the sale (see PdvPage). Used to drive the UI (badge, retry sync
+ * on reconnect), not the only line of defense against losing a sale.
  */
 export function useOnlineStatus() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

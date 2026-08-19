@@ -7,11 +7,10 @@ interface PurchaseOrderPrintProps {
   supplier: Supplier | undefined;
 }
 
-// Elemento só existe pra ser impresso/exportado como PDF (ver .print-target
-// em globals.css) — nunca aparece na tela normal de Compras. Layout de
-// documento comercial (largura cheia, não o recibo estreito do PDV): é o
-// que o dono da loja manda pro fornecedor, precisa parecer um pedido de
-// compra de verdade.
+// This element only exists to be printed/exported as a PDF (see .print-target
+// in globals.css) — never shows up on the normal Compras screen. Commercial-
+// document layout (full width, not the narrow PDV receipt): it's what the
+// store owner sends to the supplier, it needs to look like a real purchase order.
 export function PurchaseOrderPrint({ order, companyName, supplier }: PurchaseOrderPrintProps) {
   const createdAt = new Date(order.createdAt);
 

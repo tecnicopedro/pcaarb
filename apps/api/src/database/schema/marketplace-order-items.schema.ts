@@ -3,9 +3,9 @@ import { tenants } from './tenants.schema';
 import { marketplaceOrders } from './marketplace-orders.schema';
 import { products } from './products.schema';
 
-// Linha a linha do pedido importado, pra auditoria — inclusive as que não
-// foram aplicadas (applied = false), com o motivo em issue. productId fica
-// nulo quando o externalProductId não tinha listagem sincronizada.
+// Line-by-line of the imported order, for auditing — including the ones that
+// weren't applied (applied = false), with the reason in issue. productId is
+// null when the externalProductId had no synced listing.
 export const marketplaceOrderItems = pgTable('marketplace_order_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')

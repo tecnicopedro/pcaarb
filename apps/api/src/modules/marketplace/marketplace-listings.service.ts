@@ -54,11 +54,11 @@ export class MarketplaceListingsService {
     });
   }
 
-  // Idempotente: chamar de novo pra um produto já sincronizado apenas
-  // atualiza a listagem existente (upsert por channelId+productId), não
-  // duplica. Falha do provider não derruba a request — fica registrada como
-  // status 'error' pra tentar de novo depois, mesmo racional de contingência
-  // do FiscalService.
+  // Idempotent: calling this again for a product that's already synced
+  // just updates the existing listing (upsert by channelId+productId), it
+  // doesn't duplicate. A provider failure doesn't take down the request —
+  // it's recorded with status 'error' to retry later, same contingency
+  // rationale as FiscalService.
   async syncProduct(tenantId: string, channelId: string, productId: string): Promise<MarketplaceListingRow> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const channel = await this.assertChannelExists(tx, tenantId, channelId);

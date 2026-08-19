@@ -8,24 +8,24 @@ import { userPermissionOverrides, type UserPermissionOverrideRow } from '../../d
 export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 
 /**
- * Subjects vão crescendo por módulo conforme o roadmap avança
- * (Vendas, Estoque, Financeiro, Fiscal, CRM...). 'all' cobre o wildcard do CASL.
+ * Subjects keep growing per module as the roadmap advances
+ * (Sales, Stock, Finance, Fiscal, CRM...). 'all' covers CASL's wildcard.
  */
-// 'User' cobre só leitura de identidade (listar usuários/convites — baixo
-// risco). Convidar/trocar papel viram 'UserAccess', um subject à parte,
-// porque concedem controle equivalente a admin (convidar já como admin,
-// promover a admin) e por isso NUNCA podem ser alvo de override — ver
-// exclusão em permissionSubjectSchema (packages/shared). 'Integration'
-// também é excluído de lá pelo mesmo motivo: gate POST /api-keys, que mint
-// credencial durável com o role pedido — um override pontual de
-// 'Integration' virava caminho de escalonamento pra role:'admin'. 'AuditLog'
-// é owner-only por design (não entra no `can('manage', [...])` do admin
-// abaixo nem em permissionSubjectSchema) — ler o próprio log de auditoria
-// não pode ser delegável, senão um admin (ou pior, um override) poderia
-// ocultar ou verificar se as próprias ações sensíveis ficaram registradas.
-// 'DataPrivacy' (exportar/anonimizar dados pessoais de cliente) segue o
-// mesmo tratamento owner-only, pelo mesmo motivo: acesso/destruição em
-// massa de dado pessoal é decisão de dono do negócio, não delegável.
+// 'User' covers only identity reads (listing users/invites — low
+// risk). Inviting/changing roles become 'UserAccess', a separate subject,
+// because they grant admin-equivalent control (inviting already as admin,
+// promoting to admin) and therefore can NEVER be an override target — see
+// the exclusion in permissionSubjectSchema (packages/shared). 'Integration'
+// is also excluded there for the same reason: it gates POST /api-keys, which
+// mints a durable credential with the requested role — a one-off override on
+// 'Integration' turned into an escalation path to role:'admin'. 'AuditLog'
+// is owner-only by design (it's absent from admin's `can('manage', [...])`
+// below and from permissionSubjectSchema) — reading the audit log itself
+// must not be delegable, otherwise an admin (or worse, an override) could
+// hide or check whether their own sensitive actions got logged.
+// 'DataPrivacy' (exporting/anonymizing customer personal data) gets the
+// same owner-only treatment, for the same reason: bulk access/destruction
+// of personal data is a business-owner decision, not delegable.
 export type Subject =
   | 'all'
   | 'Sale'
@@ -55,23 +55,23 @@ export type AppAbility = PureAbility<[Action, Subject]>;
 export class AbilityFactory {
   constructor(@Inject(DRIZZLE) private readonly db: Database) {}
 
-  // Ponto de entrada real (guard): papel + overrides persistidos do usuário.
+  // Real entry point (guard): role + the user's persisted overrides.
   async createForUser(user: JwtPayload): Promise<AppAbility> {
     const overrides = await this.fetchOverrides(user.tenantId, user.sub);
     return this.buildAbility(user.role, overrides);
   }
 
-  // Núcleo puro, sem I/O — testável direto (unit) e reaproveitado por createForUser.
-  // Overrides são aplicados DEPOIS das regras do papel: no CASL a última regra que
-  // casa com (action, subject) vence, então um `can`/`cannot` de override sempre
-  // tem prioridade sobre o default do papel, em qualquer direção (concede ou nega).
+  // Pure core, no I/O — directly unit-testable and reused by createForUser.
+  // Overrides are applied AFTER the role rules: in CASL the last rule that
+  // matches (action, subject) wins, so an override's `can`/`cannot` always
+  // takes priority over the role default, in either direction (grant or deny).
   buildAbility(role: Role, overrides: Pick<UserPermissionOverrideRow, 'subject' | 'action' | 'effect'>[] = []): AppAbility {
     const { can, cannot, build } = new AbilityBuilder(PureAbility as AbilityClass<AppAbility>);
 
     this.defineByRole(role, can);
 
-    // Owner sempre tem acesso total, mesmo que existam overrides órfãos de uma
-    // promoção anterior — não é o papel que devia precisar de exceções.
+    // Owner always has full access, even if there are orphaned overrides from
+    // an earlier promotion — this isn't a role that should need exceptions.
     if (role !== 'owner') {
       for (const override of overrides) {
         const subject = override.subject as Subject;

@@ -3,8 +3,8 @@ import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 import { cashSessions } from './cash-sessions.schema';
 
-// 'estorno' (reembolso em dinheiro de uma devolução de venda) foi adicionado
-// depois de sangria/suprimento — ver SaleReturnsService.
+// 'estorno' (cash refund for a sale return) was added after
+// sangria/suprimento (cash withdrawal/cash deposit) — see SaleReturnsService.
 export const cashMovementTypeEnum = pgEnum('cash_movement_type', ['sangria', 'suprimento', 'estorno']);
 
 export const cashMovements = pgTable('cash_movements', {

@@ -30,9 +30,9 @@ export const closeCashSessionSchema = z.object({
 
 export type CloseCashSessionInput = z.infer<typeof closeCashSessionSchema>;
 
-// 'estorno' só é criado internamente por SaleReturnsService (reembolso em
-// dinheiro de uma devolução) — nunca pelo endpoint manual de movimentação,
-// por isso não entra em createCashMovementSchema abaixo.
+// 'estorno' (refund) is only created internally by SaleReturnsService (cash
+// refund for a return) — never through the manual movement endpoint,
+// which is why it's not included in createCashMovementSchema below.
 export const cashMovementTypeSchema = z.enum(['sangria', 'suprimento', 'estorno']);
 
 export const cashMovementSchema = z.object({

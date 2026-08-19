@@ -9,10 +9,11 @@ import type {
 } from './payment-provider.interface';
 
 /**
- * Adapter de sandbox: sempre aprova. Fica no lugar do adapter real
- * (Pagar.me/Mercado Pago) até termos conta e credenciais com um parceiro —
- * ver docs/03-build-vs-buy-pagamentos-fiscal.md. Nenhum dado de cartão passa
- * por aqui; a integração real delegaria isso ao SDK do gateway.
+ * Sandbox adapter: always approves. Stands in for the real adapter
+ * (Pagar.me/Mercado Pago) until we have an account and credentials with a
+ * partner — see docs/03-build-vs-buy-pagamentos-fiscal.md. No card data ever
+ * passes through here; the real integration would delegate that to the
+ * gateway's SDK.
  */
 @Injectable()
 export class MockPaymentProvider implements PaymentProvider {

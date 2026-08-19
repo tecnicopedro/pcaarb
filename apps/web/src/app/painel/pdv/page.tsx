@@ -61,10 +61,10 @@ function cartDraftKey(tenantId: string): string {
   return `pcaarb_pdv_draft_${tenantId}`;
 }
 
-// Só o rascunho do carrinho (não confirmado ainda): um reload duro sem
-// internet no meio de uma venda não pode apagar o que o operador já separou.
-// Diferente da fila de vendas offline (offline-sale-queue.ts) — aqui a venda
-// nem foi "finalizada" ainda, é só o que está sendo montado na tela.
+// Just the cart draft (not confirmed yet): a hard reload without internet in
+// the middle of a sale must not erase what the operator has already put
+// together. Different from the offline sale queue (offline-sale-queue.ts) —
+// here the sale hasn't even been "finalized" yet, it's just what's being assembled on screen.
 function loadCartDraft(tenantId: string): CartDraft | null {
   try {
     const raw = localStorage.getItem(cartDraftKey(tenantId));
@@ -78,8 +78,8 @@ function saveCartDraft(tenantId: string, draft: CartDraft): void {
   try {
     localStorage.setItem(cartDraftKey(tenantId), JSON.stringify(draft));
   } catch {
-    // localStorage indisponível/cheio: perde só a conveniência do rascunho
-    // sobreviver a um reload, a venda em si não depende disso.
+    // localStorage unavailable/full: only the convenience of the draft
+    // surviving a reload is lost, the sale itself doesn't depend on this.
   }
 }
 
@@ -87,7 +87,7 @@ function clearCartDraft(tenantId: string): void {
   try {
     localStorage.removeItem(cartDraftKey(tenantId));
   } catch {
-    // ver comentário em saveCartDraft
+    // see comment in saveCartDraft
   }
 }
 
@@ -113,25 +113,25 @@ export default function PdvPage() {
     queryKey: ['offline-sale-queue', tenantId],
     queryFn: () => listOfflineSales(tenantId!),
     enabled: !!tenantId,
-    // A fila só muda por ação local (venda enfileirada, sync tentado) — não
-    // por nada que aconteça no servidor, então não faz sentido revalidar
-    // sozinha; invalidateQueries dispara a releitura nos momentos certos.
+    // The queue only changes through local action (sale queued, sync
+    // attempted) — never by anything that happens on the server, so it
+    // doesn't make sense for it to revalidate on its own; invalidateQueries
+    // triggers the re-read at the right moments.
     staleTime: Infinity,
-    // 'always': o padrão do react-query ('online') pausa a query inteira
-    // enquanto o navegador está offline — errado aqui, já que isto lê do
-    // IndexedDB local, não da rede, e é exatamente o que precisa continuar
-    // funcionando offline.
+    // 'always': react-query's default ('online') pauses the whole query
+    // while the browser is offline — wrong here, since this reads from the
+    // local IndexedDB, not the network, and is exactly what needs to keep working offline.
     networkMode: 'always',
   });
   const pendingSales = offlineQueueQuery.data?.filter((s) => s.status === 'pending') ?? [];
   const attentionSales = offlineQueueQuery.data?.filter((s) => s.status === 'needs_attention') ?? [];
 
-  // Sincroniza a fila local: reenvia cada venda pendente com a mesma
-  // clientSaleId (idempotente — ver SalesService.create). Recusa de verdade
-  // do servidor (estoque insuficiente, produto desativado, caixa que
-  // originou a venda não existe mais) vira 'needs_attention' e para de
-  // tentar sozinha; falha de rede (ainda offline) deixa como está pra
-  // tentar de novo na próxima reconexão — nunca descarta nem finge sucesso.
+  // Syncs the local queue: resends each pending sale with the same
+  // clientSaleId (idempotent — see SalesService.create). A real refusal from
+  // the server (insufficient stock, deactivated product, the cash session
+  // the sale originated from no longer exists) becomes 'needs_attention' and
+  // stops retrying on its own; a network failure (still offline) leaves it
+  // as is to retry on the next reconnection — it never discards or fakes success.
   const flushOfflineQueue = useCallback(async () => {
     if (!accessToken || !tenantId) return;
     const queued = await listOfflineSales(tenantId);
@@ -150,7 +150,7 @@ export default function PdvPage() {
           await markOfflineSaleNeedsAttention(item.clientSaleId, error.message);
           attentionCount += 1;
         }
-        // erro de rede (ainda sem conexão de verdade): deixa 'pending', tenta de novo depois
+        // network error (still no real connection): leaves it as 'pending', retries later
       }
     }
 
@@ -167,9 +167,8 @@ export default function PdvPage() {
     }
   }, [accessToken, tenantId, queryClient]);
 
-  // Tenta sincronizar ao reconectar, e uma vez ao carregar a página (cobre o
-  // caso de vendas enfileiradas numa aba/sessão anterior enquanto o
-  // dispositivo já está online de novo).
+  // Tries to sync on reconnection, and once on page load (covers the case of
+  // sales queued in a previous tab/session while the device is already back online).
   useEffect(() => {
     if (isOnline) {
       flushOfflineQueue();
@@ -224,8 +223,8 @@ export default function PdvPage() {
   const activeStores = storesQuery.data?.filter((store) => store.active) ?? [];
 
   const [openingAmount, setOpeningAmount] = useState('');
-  // A maioria dos tenants tem 1 loja só (plano Starter/Profissional) — nesse
-  // caso nem mostra seletor, já usa a única loja direto.
+  // Most tenants have just 1 store (Starter/Profissional plan) — in that
+  // case it doesn't even show a selector, it uses the single store directly.
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const effectiveStoreId = selectedStoreId || (activeStores.length === 1 ? activeStores[0]!.id : '');
 
@@ -253,22 +252,22 @@ export default function PdvPage() {
   const [saleError, setSaleError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
 
-  // Restaura o carrinho em andamento (se o reload aconteceu no meio de uma
-  // venda) uma única vez, assim que o tenant é conhecido — só entra dado se
-  // ainda não existe nada na tela, pra não sobrescrever o que o operador já
-  // está montando caso o efeito rode de novo por algum motivo. Não dá pra
-  // usar lazy useState() aqui porque tenantId só existe depois que
-  // useCurrentUser() resolve (mesmo vindo do cache persistido, ainda leva um
-  // ciclo de render) — não está disponível no primeiro render pra semear o
-  // estado direto. O guard por ref garante que isto roda no máximo uma vez
-  // por montagem, então não há risco de loop de render em cascata.
+  // Restores the in-progress cart (if the reload happened in the middle of a
+  // sale) exactly once, as soon as the tenant is known — only feeds in data
+  // if nothing already exists on screen, so it doesn't overwrite what the
+  // operator is already assembling if the effect runs again for some reason.
+  // Can't use lazy useState() here because tenantId only exists once
+  // useCurrentUser() resolves (even coming from the persisted cache, it
+  // still takes one render cycle) — it isn't available on the first render
+  // to seed the state directly. The ref guard ensures this runs at most once
+  // per mount, so there's no risk of a cascading render loop.
   const draftHydrated = useRef(false);
   useEffect(() => {
     if (!tenantId || draftHydrated.current) return;
     draftHydrated.current = true;
     const draft = loadCartDraft(tenantId);
     if (draft && draft.cart.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- hidratação única de um valor externo (localStorage) que só fica disponível depois do primeiro render, guardada por ref acima
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration of an external value (localStorage) that's only available after the first render, guarded by the ref above
       setCart(draft.cart);
       setSelectedCustomerId(draft.selectedCustomerId);
       setDiscountReais(draft.discountReais);
@@ -333,22 +332,22 @@ export default function PdvPage() {
   type CreateSaleOutcome = { kind: 'synced'; sale: Sale } | { kind: 'queued' };
 
   const createSaleMutation = useMutation<CreateSaleOutcome, Error, void>({
-    // 'always': o padrão do react-query ('online') PAUSA a mutation inteira
-    // enquanto o navegador está offline — nunca chega a chamar mutationFn,
-    // só retoma quando a conexão volta. Isso anularia completamente o
-    // enfileiramento local (o objetivo inteiro desta mutation): o botão
-    // ficaria girando pra sempre até reconectar, em vez de salvar a venda no
-    // dispositivo na hora. mutationFn já trata a conectividade sozinho
-    // (checagem de isOnline + catch de falha de rede), então não precisa —
-    // e não pode — depender do controle de rede do react-query aqui.
+    // 'always': react-query's default ('online') PAUSES the whole mutation
+    // while the browser is offline — it never even calls mutationFn, only
+    // resuming once the connection comes back. That would completely defeat
+    // local queueing (the entire point of this mutation): the button would
+    // just spin forever until reconnection, instead of saving the sale on
+    // the device right away. mutationFn already handles connectivity on its
+    // own (isOnline check + network failure catch), so it doesn't need —
+    // and can't — depend on react-query's network control here.
     networkMode: 'always',
     mutationFn: async (): Promise<CreateSaleOutcome> => {
-      // clientSaleId nasce AQUI, já dentro do corpo que vai pro servidor —
-      // é a mesma chave usada como id da fila local (offline-sale-queue) e a
-      // mandada num eventual retry de sincronização, garantindo que o
-      // servidor veja sempre a mesma clientSaleId pra esta venda em
-      // qualquer tentativa (ver SalesService.create — idempotência real
-      // depende da chave ser idêntica em toda tentativa, não só existir).
+      // clientSaleId is born HERE, already inside the body that goes to the
+      // server — it's the same key used as the id of the local queue
+      // (offline-sale-queue) and the one sent on any eventual sync retry,
+      // guaranteeing the server always sees the same clientSaleId for this
+      // sale on every attempt (see SalesService.create — real idempotency
+      // depends on the key being identical on every attempt, not just existing).
       const clientSaleId = crypto.randomUUID();
       const body: CreateSaleInput = {
         customerId: selectedCustomerId || undefined,
@@ -359,8 +358,8 @@ export default function PdvPage() {
         clientSaleId,
       };
 
-      // Sem conexão de verdade: nem tenta a requisição, enfileira direto —
-      // evita esperar o timeout do fetch pra descobrir o óbvio.
+      // No real connection: doesn't even attempt the request, queues it
+      // directly — avoids waiting for the fetch timeout just to find out the obvious.
       if (!isOnline) {
         await enqueueOfflineSale({
           clientSaleId,
@@ -377,18 +376,18 @@ export default function PdvPage() {
         const sale = await apiFetch<Sale>('/sales', { method: 'POST', accessToken: accessToken!, body });
         return { kind: 'synced', sale };
       } catch (error) {
-        // ApiError = o servidor respondeu e recusou a venda de verdade
-        // (estoque insuficiente, pagamento não fecha etc.) — não é um
-        // problema de conectividade, tem que aparecer pro operador agora,
-        // não ficar escondido numa fila.
+        // ApiError = the server responded and actually refused the sale
+        // (insufficient stock, payment doesn't add up, etc.) — this isn't a
+        // connectivity problem, it has to surface to the operator now, not
+        // stay hidden in a queue.
         if (error instanceof ApiError) {
           throw error;
         }
-        // Qualquer outro erro aqui é o fetch falhando por rede (a conexão
-        // caiu bem na hora de finalizar) — a venda já foi conferida no
-        // cliente (carrinho, pagamento fechado), então vira uma venda
-        // enfileirada com a MESMA clientSaleId que seria usada num retry
-        // manual, em vez de o operador simplesmente perder a venda.
+        // Any other error here is the fetch failing due to network (the
+        // connection dropped right when finalizing) — the sale has already
+        // been validated on the client (cart, payment matches), so it
+        // becomes a queued sale with the SAME clientSaleId that would be
+        // used on a manual retry, instead of the operator simply losing the sale.
         await enqueueOfflineSale({
           clientSaleId,
           tenantId: tenantId!,

@@ -13,8 +13,9 @@ import {
 import { PAYMENT_PROVIDER, type PaymentProvider } from '../payments/payment-provider.interface';
 
 const BILLING_PERIOD_DAYS = 30;
-// Dias de acesso mantido depois da primeira cobrança recusada antes de
-// bloquear — dá tempo do lojista atualizar o cartão sem perder acesso na hora.
+// Days of access retained after the first declined charge before blocking —
+// gives the store owner time to update the card without losing access
+// immediately.
 const GRACE_PERIOD_DAYS = 5;
 
 function addDays(date: Date, days: number): Date {
@@ -24,12 +25,12 @@ function addDays(date: Date, days: number): Date {
 }
 
 /**
- * subscriptions/subscription_invoices não têm RLS por tenant_id — mesmo
- * tratamento de `tenants`: são dado de plataforma sobre o tenant (billing),
- * não dado de negócio isolado por tenant como vendas/produtos. Isso também é
- * necessário na prática: o cron de cobrança precisa varrer TODOS os tenants
- * de uma vez pra achar quem está vencido, o que RLS por sessão impediria.
- * Todo acesso continua filtrado explicitamente por tenantId no código.
+ * subscriptions/subscription_invoices don't have RLS by tenant_id — same
+ * treatment as `tenants`: they're platform data about the tenant (billing),
+ * not tenant-isolated business data like sales/products. This is also
+ * necessary in practice: the billing cron needs to scan ALL tenants at once
+ * to find who's overdue, which per-session RLS would prevent. All access is
+ * still explicitly filtered by tenantId in the code.
  */
 @Injectable()
 export class BillingService {
@@ -53,16 +54,16 @@ export class BillingService {
       .orderBy(desc(subscriptionInvoices.createdAt));
   }
 
-  // Serve três casos com um endpoint só: primeira assinatura, reativação
-  // (estava cancelada ou bloqueada por inadimplência) e troca de plano.
-  // Todos cobram na hora e reiniciam o ciclo de 30 dias a partir de agora —
-  // achado em revisão de segurança (2026-08-17): uma troca de plano sem
-  // cobrança imediata permitia assinar Multi-loja, criar lojas extras, e
-  // trocar de volta pro Starter antes da renovação, ficando com acesso a
-  // todas as lojas sem nunca pagar por elas de fato. Trocar de plano sem
-  // cobrar de novo exigiria proração de verdade — fora do escopo do MVP de
-  // billing; cobrar o valor cheio do novo plano na hora é mais simples e
-  // fecha o buraco.
+  // Serves three cases with a single endpoint: first subscription,
+  // reactivation (was canceled or blocked for non-payment), and plan change.
+  // All of them charge immediately and restart the 30-day cycle from now —
+  // security review finding (2026-08-17): a plan change without an
+  // immediate charge allowed subscribing to Multi-loja, creating extra
+  // stores, and switching back to Starter before renewal, ending up with
+  // access to all the stores without ever actually paying for them.
+  // Changing plans without charging again would require real proration —
+  // out of scope for the billing MVP; charging the new plan's full price
+  // immediately is simpler and closes the hole.
   async subscribe(tenantId: string, input: SubscribeInput): Promise<SubscriptionRow> {
     const existing = await this.getSubscription(tenantId);
     const priceCents = SUBSCRIPTION_PLAN_CATALOG[input.plan].priceCents;
@@ -118,9 +119,10 @@ export class BillingService {
     });
   }
 
-  // Cancelamento imediato, não agendado pro fim do ciclo — simplificação
-  // deliberada do MVP de billing (evita um estado "cancela mas continua
-  // ativo até tal data" que precisaria de mais uma máquina de estados).
+  // Immediate cancellation, not scheduled for the end of the cycle —
+  // deliberate simplification of the billing MVP (avoids a "canceled but
+  // stays active until such date" state that would need yet another state
+  // machine).
   async cancel(tenantId: string): Promise<SubscriptionRow> {
     const existing = await this.getSubscription(tenantId);
     if (!existing || existing.status === 'canceled') {
@@ -149,11 +151,12 @@ export class BillingService {
     }
   }
 
-  // Cobra ciclos vencidos (status active/past_due com currentPeriodEnd no
-  // passado). Sucesso avança o período; falha marca past_due (1ª vez) e
-  // segue tentando todo dia até a carência esgotar, quando bloqueia. Tenant
-  // já bloqueado não é mais tentado sozinho — só via subscribe() (reativação
-  // manual), pra não ficar tentando cobrar um cartão já sabido inválido.
+  // Charges overdue cycles (status active/past_due with currentPeriodEnd in
+  // the past). Success advances the period; failure marks past_due (1st
+  // time) and keeps retrying every day until the grace period runs out, at
+  // which point it blocks. A tenant that's already blocked is no longer
+  // retried on its own — only via subscribe() (manual reactivation), so we
+  // don't keep trying to charge a card already known to be invalid.
   async processDueBilling(): Promise<number> {
     const now = new Date();
     const due = await this.db

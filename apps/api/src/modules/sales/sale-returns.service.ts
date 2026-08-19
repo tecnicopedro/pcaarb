@@ -37,9 +37,9 @@ export class SaleReturnsService {
   ) {}
 
   async create(tenantId: string, userId: string, saleId: string, input: CreateSaleReturnInput): Promise<SaleReturnWithItems> {
-    // Mesma exigência da venda: reembolso em dinheiro precisa de um caixa
-    // aberto do operador que está processando a devolução — não necessariamente
-    // a mesma sessão da venda original, que já pode ter fechado.
+    // Same requirement as the sale: a cash refund needs an open cash session
+    // for the operator processing the return — not necessarily the same
+    // session as the original sale, which may have already closed.
     const cashSession =
       input.refundMethod === 'dinheiro' ? await this.cashSessionsService.getCurrentOpenSession(tenantId, userId) : undefined;
     if (input.refundMethod === 'dinheiro' && !cashSession) {
@@ -69,20 +69,21 @@ export class SaleReturnsService {
         alreadyReturnedByItem.set(row.saleItemId, (alreadyReturnedByItem.get(row.saleItemId) ?? 0) + row.quantity);
       }
 
-      // Agrega por saleItemId ANTES de validar: duas linhas pedindo o mesmo
-      // item na mesma requisição precisam ser validadas contra a SOMA das
-      // duas, não cada uma isoladamente contra o saldo já devolvido (senão
-      // {item X qty 5}+{item X qty 5} numa venda que só vendeu 5 passava nas
-      // duas checagens independentes e devolvia/reembolsava o dobro do que
-      // foi vendido, numa única requisição, sem nenhuma corrida envolvida).
+      // Aggregate by saleItemId BEFORE validating: two lines requesting the
+      // same item in the same request must be validated against their
+      // COMBINED total, not each checked independently against the balance
+      // already returned (otherwise {item X qty 5}+{item X qty 5} on a sale
+      // that only sold 5 would pass both independent checks and
+      // return/refund double what was actually sold, in a single request,
+      // with no race condition involved).
       const requestedByItem = new Map<string, number>();
       for (const requested of input.items) {
         requestedByItem.set(requested.saleItemId, (requestedByItem.get(requested.saleItemId) ?? 0) + requested.quantity);
       }
 
-      // Tudo-ou-nada: qualquer linha pedida inválida derruba a devolução
-      // inteira antes de gravar qualquer coisa — nunca fica parcialmente
-      // aplicada, nunca falha silenciosamente numa linha só.
+      // All-or-nothing: any invalid requested line takes down the entire
+      // return before anything is written — it never ends up partially
+      // applied, and never fails silently on just one line.
       for (const [saleItemId, requestedQuantity] of requestedByItem) {
         const saleItem = itemById.get(saleItemId);
         if (!saleItem) {
@@ -97,9 +98,10 @@ export class SaleReturnsService {
         }
       }
 
-      // Rateio: se a venda teve desconto ou resgate de pontos de fidelidade,
-      // devolve proporcionalmente ao que o cliente pagou de fato, não o preço
-      // de tabela da linha — evita devolver mais dinheiro do que foi recebido.
+      // Proration: if the sale had a discount or a loyalty points
+      // redemption, the refund is proportional to what the customer
+      // actually paid, not the line's list price — this avoids refunding
+      // more money than was received.
       const ratio = sale.subtotalCents > 0 ? sale.totalCents / sale.subtotalCents : 1;
 
       const lines = Array.from(requestedByItem.entries()).map(([saleItemId, quantity]) => {
@@ -111,8 +113,8 @@ export class SaleReturnsService {
 
       const issues: string[] = [];
 
-      // Estoque: sempre restaurado para itens com controle de estoque, mesmo
-      // se o produto foi desativado depois — mesma transação da devolução.
+      // Stock: always restored for stock-tracked items, even if the product
+      // was deactivated afterward — same transaction as the return.
       const productRows = await tx
         .select()
         .from(products)
@@ -138,11 +140,12 @@ export class SaleReturnsService {
         }
       }
 
-      // Fidelidade: se a venda original usou resgate de pontos, a reversão
-      // automática fica de fora do v1 (regra ambígua — devolver os pontos E
-      // o dinheiro é decisão de negócio, não técnica) e a devolução é
-      // sinalizada pra ajuste manual. Sem resgate, pontos ganhos são
-      // estornados proporcionalmente ao valor devolvido.
+      // Loyalty: if the original sale used a points redemption, automatic
+      // reversal is out of scope for v1 (an ambiguous rule — refunding both
+      // the points AND the money is a business decision, not a technical
+      // one), and the return is flagged for manual adjustment. Without a
+      // redemption, points earned are clawed back proportionally to the
+      // amount refunded.
       if (sale.customerId) {
         const loyaltyEntries = await tx
           .select()
@@ -168,10 +171,11 @@ export class SaleReturnsService {
         }
       }
 
-      // Reembolso: dinheiro sai do caixa de quem processa agora; cartão/Pix
-      // chama o provedor e, se recusado, derruba a transação inteira (nada
-      // fica "meio estornado"); outro método só é registrado, sem efeito
-      // colateral automático (ex.: crédito de loja resolvido manualmente).
+      // Refund: cash comes out of the cash session of whoever is processing
+      // it now; card/Pix calls the provider and, if declined, takes down
+      // the whole transaction (nothing ends up "half refunded"); any other
+      // method is just recorded, with no automatic side effect (e.g. store
+      // credit resolved manually).
       if (input.refundMethod === 'dinheiro') {
         await this.cashSessionsService.addMovementTx(tx, {
           tenantId,
@@ -183,13 +187,14 @@ export class SaleReturnsService {
         });
       } else if (input.refundMethod === 'estorno_pagamento') {
         const payments = await tx.select().from(salePayments).where(eq(salePayments.saleId, sale.id));
-        // Venda com pagamento dividido pode ter mais de um pagamento não-dinheiro
-        // (ex.: metade cartão, metade Pix) — escolhe o de maior valor (mais chance
-        // de cobrir o reembolso) em vez do primeiro que aparecer, e exige que ele
-        // sozinho cubra o total: mandar mais do que aquela transação específica
-        // cobrou pra um gateway real seria recusado (ou pior, debitaria o
-        // lojista); melhor um erro claro aqui do que estornar contra a
-        // transação errada ou por um valor que ela nunca cobrou.
+        // A sale with a split payment can have more than one non-cash
+        // payment (e.g. half card, half Pix) — picks the one with the
+        // highest amount (better chance of covering the refund) rather than
+        // the first one found, and requires that it alone cover the total:
+        // sending a real gateway more than that specific transaction
+        // charged would be declined (or worse, would debit the merchant);
+        // better a clear error here than refunding against the wrong
+        // transaction or for an amount it never charged.
         const refundablePayment = payments.filter((p) => p.method !== 'dinheiro').sort((a, b) => b.amountCents - a.amountCents)[0];
         if (!refundablePayment) {
           throw new BadRequestException(
@@ -215,10 +220,10 @@ export class SaleReturnsService {
         }
       }
 
-      // Fiscal: cancelamento de NFC-e só é tentado quando 100% da venda
-      // (somando todas as devoluções, inclusive esta) já foi devolvida — nota
-      // complementar de devolução parcial é um fluxo fiscal diferente, fora
-      // de escopo do v1.
+      // Fiscal: NFC-e cancellation is only attempted once 100% of the sale
+      // (summing all returns, including this one) has been returned — a
+      // partial-return complementary note is a different fiscal flow, out
+      // of scope for v1.
       const isFullReturn = allItems.every((item) => {
         const requestedThisRound = lines.find((line) => line.saleItem.id === item.id)?.quantity ?? 0;
         const alreadyReturned = alreadyReturnedByItem.get(item.id) ?? 0;

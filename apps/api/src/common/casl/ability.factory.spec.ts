@@ -3,8 +3,8 @@ import type { Database } from '../../database/drizzle.provider';
 import { AbilityFactory } from './ability.factory';
 
 describe('AbilityFactory', () => {
-  // buildAbility() é puro (não usa this.db) — dummy value só pra satisfazer o
-  // construtor, sem precisar de um Database real nestes testes.
+  // buildAbility() is pure (doesn't use this.db) — dummy value just to satisfy
+  // the constructor, without needing a real Database in these tests.
   const factory = new AbilityFactory({} as Database);
 
   it('owner pode gerenciar qualquer subject', () => {
@@ -153,7 +153,7 @@ describe('AbilityFactory', () => {
 
       const comOverride = factory.buildAbility('operador_caixa', [{ subject: 'Report', action: 'read', effect: 'allow' }]);
       expect(comOverride.can('read', 'Report')).toBe(true);
-      // Resto do papel continua igual — override é pontual, não vira outro papel.
+      // Rest of the role stays the same — override is a one-off, it doesn't become a whole new role.
       expect(comOverride.can('manage', 'FinanceEntry')).toBe(false);
     });
 
@@ -163,7 +163,7 @@ describe('AbilityFactory', () => {
 
       const comOverride = factory.buildAbility('admin', [{ subject: 'FinanceEntry', action: 'manage', effect: 'deny' }]);
       expect(comOverride.can('manage', 'FinanceEntry')).toBe(false);
-      // Resto do papel continua igual.
+      // Rest of the role stays the same.
       expect(comOverride.can('manage', 'Product')).toBe(true);
     });
 
@@ -174,9 +174,9 @@ describe('AbilityFactory', () => {
     });
 
     it('override em "User" nunca concede UserAccess (convite/troca de papel é imune a override)', () => {
-      // 'User' e 'UserAccess' são subjects distintos por isso: um override
-      // update:User (pensado como algo pontual) não deve destravar convite
-      // nem troca de papel — só o papel base admin/owner concede UserAccess.
+      // 'User' and 'UserAccess' are distinct subjects for this reason: an
+      // update:User override (meant as a one-off grant) should not unlock
+      // inviting or changing roles — only the base admin/owner role grants UserAccess.
       const ability = factory.buildAbility('operador_caixa', [
         { subject: 'User', action: 'update', effect: 'allow' },
         { subject: 'User', action: 'create', effect: 'allow' },
@@ -195,7 +195,7 @@ describe('AbilityFactory', () => {
       expect(ability.can('read', 'Report')).toBe(true);
       expect(ability.can('read', 'FinanceEntry')).toBe(true);
       expect(ability.can('create', 'Sale')).toBe(false);
-      expect(ability.can('read', 'Sale')).toBe(true); // não mexido pelo deny específico de 'create'
+      expect(ability.can('read', 'Sale')).toBe(true); // untouched by the specific 'create' deny
     });
   });
 });

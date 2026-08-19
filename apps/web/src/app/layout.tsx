@@ -19,9 +19,9 @@ export const metadata: Metadata = {
   description: "SaaS de gestão empresarial com PDV para pequeno e médio varejo.",
 };
 
-// Tipagem simples em vez de `LayoutProps<"/">`: esse tipo só existe depois de
-// um `next build`/`next dev` gerar `.next/types` — em CI/checkout limpo o
-// typecheck roda antes do build e quebraria por depender de codegen.
+// Simple typing instead of `LayoutProps<"/">`: that type only exists after a
+// `next build`/`next dev` generates `.next/types` — on a clean CI checkout,
+// typecheck runs before the build and would break by depending on codegen.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html

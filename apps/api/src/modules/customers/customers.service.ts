@@ -68,14 +68,14 @@ export class CustomersService {
     });
   }
 
-  // Cliente sem nenhum histórico (venda, ponto de fidelidade, lançamento
-  // financeiro) é apagado de verdade — nada a perder. Cliente COM histórico
-  // é anonimizado em vez de apagado: um DELETE físico cascateava em
-  // loyalty_ledger_entries (FK NOT NULL, onDelete cascade), destruindo um
-  // ledger que o próprio schema documenta como imutável, e órfão em
-  // sales/finance_entries perdia o nome do cliente em relatórios/exportação
-  // sem necessidade — anonimizar preserva a integridade dos dois e ainda
-  // satisfaz o direito de exclusão da LGPD (art. 18).
+  // A customer with no history at all (sale, loyalty point, financial entry)
+  // is hard-deleted — nothing to lose. A customer WITH history is
+  // anonymized instead of deleted: a physical DELETE would cascade into
+  // loyalty_ledger_entries (NOT NULL FK, onDelete cascade), destroying a
+  // ledger the schema itself documents as immutable, and orphaning
+  // sales/finance_entries would needlessly lose the customer's name in
+  // reports/exports — anonymizing preserves the integrity of both and still
+  // satisfies the LGPD right to erasure (art. 18).
   async remove(tenantId: string, id: string, actorUserId: string): Promise<void> {
     await this.findByIdOrThrow(tenantId, id);
     const hasHistory = await this.dataPrivacyService.hasHistory(tenantId, id);

@@ -7,17 +7,17 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { PermissionOverridesService } from './permission-overrides.service';
 
-// Exceção de permissão é uma extensão de gestão de usuários — mesmo CASL
-// subject ('UserAccess'), não um subject novo. Só quem gerencia usuários
-// gerencia as exceções pontuais dentro deles.
+// A permission exception is an extension of user management — the same CASL
+// subject ('UserAccess'), not a new subject. Only whoever manages users
+// manages the one-off exceptions within them.
 //
-// Deliberadamente 'UserAccess', não 'User': se este controller usasse o
-// subject 'User' (que é overridável), um usuário com um override
-// update:User concedido pontualmente ganharia o poder de criar/remover
-// overrides para qualquer usuário do tenant — inclusive pra si mesmo,
-// se dando 'manage' em qualquer outro subject de negócio. 'UserAccess' é
-// excluído de permissionSubjectSchema (packages/shared), então esse
-// meta-poder nunca pode ser concedido por fora do papel base admin/owner.
+// Deliberately 'UserAccess', not 'User': if this controller used the 'User'
+// subject (which is overridable), a user with a one-off update:User override
+// granted to them would gain the power to create/remove overrides for any
+// user in the tenant — including for themselves, granting 'manage' on any
+// other business subject. 'UserAccess' is excluded from
+// permissionSubjectSchema (packages/shared), so this meta-power can never be
+// granted outside of the base admin/owner role.
 @ApiTags('permission-overrides')
 @ApiBearerAuth()
 @Controller('users/:userId/permission-overrides')

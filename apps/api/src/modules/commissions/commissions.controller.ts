@@ -12,9 +12,9 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CommissionsService } from './commissions.service';
 
-// Comissão de vendedor é configuração de relatório/custo, não identidade de
-// usuário — mesmo CASL subject de Relatórios ('Report'): 'manage' (só
-// admin/owner) pra configurar taxas, 'read' (também financeiro) pra ver.
+// Seller commission is report/cost configuration, not user identity — same
+// CASL subject as Reports ('Report'): 'manage' (admin/owner only) to
+// configure rates, 'read' (finance too) to view.
 @ApiTags('commissions')
 @ApiBearerAuth()
 @Controller('commissions')

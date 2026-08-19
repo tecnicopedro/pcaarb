@@ -23,8 +23,8 @@ export const createApiKeySchema = z.object({
 
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 
-// Só a resposta de criação carrega a chave crua — nunca mais recuperável
-// depois disso, nem pelo próprio backend (só o hash fica salvo).
+// Only the creation response carries the raw key — never retrievable again
+// after that, not even by the backend itself (only the hash is stored).
 export const createdApiKeySchema = apiKeySchema.extend({
   rawKey: z.string(),
 });

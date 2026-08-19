@@ -5,9 +5,10 @@ import { AbilityFactory } from '../casl/ability.factory';
 import { CHECK_ABILITIES_KEY, type AbilityRequirement } from '../decorators/check-abilities.decorator';
 
 /**
- * Global e "no-op" quando a rota não usa @CheckAbilities() — mesmo padrão do
- * RolesGuard. Onde usada, checa a ability real do CASL (não só o papel bruto),
- * então uma regra por-ação/subject muda num lugar só (ability.factory.ts).
+ * Global and a no-op when the route doesn't use @CheckAbilities() — same
+ * pattern as RolesGuard. Where used, it checks the real CASL ability (not
+ * just the raw role), so a per-action/subject rule changes in one place
+ * (ability.factory.ts).
  */
 @Injectable()
 export class AbilityGuard implements CanActivate {

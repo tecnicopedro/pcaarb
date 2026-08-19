@@ -14,22 +14,22 @@ export const users = pgTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     role: roleEnum('role').notNull().default('operador_caixa'),
-    // Conta de serviço vinculada a uma chave de API (ver api-keys.schema.ts):
-    // uma linha de verdade em `users`, não um principal sintético, porque
-    // várias tabelas têm FK NOT NULL pra users.id (sales.seller_id,
-    // stock_movements.user_id...) — assim toda ação feita via chave de API
-    // satisfaz essas FKs de graça, sem precisar auditar/alterar cada uma.
-    // Nunca loga de verdade (senha é lixo aleatório nunca revelado) e fica
-    // fora da listagem humana de usuários (ver UsersService.listByTenant).
+    // Service account linked to an API key (see api-keys.schema.ts):
+    // a real row in `users`, not a synthetic principal, because
+    // several tables have a NOT NULL FK to users.id (sales.seller_id,
+    // stock_movements.user_id...) — this way every action taken via an API key
+    // satisfies those FKs for free, without needing to audit/change each one.
+    // Never actually logs in (the password is random garbage that's never
+    // revealed) and is left out of the human user listing (see UsersService.listByTenant).
     isServiceAccount: boolean('is_service_account').notNull().default(false),
-    // Desativação de usuário (LGPD/gestão de funcionário) — mesmo padrão de
-    // products.active/stores.active, nunca DELETE físico: um usuário tem FK
-    // em vendas/estoque/caixa/auditoria por todo canto, apagar destruiria
-    // histórico de negócio. Login bloqueado quando false.
+    // User deactivation (LGPD/employee management) — same pattern as
+    // products.active/stores.active, never a hard DELETE: a user has FKs
+    // in sales/stock/cash register/audit all over the place, deleting would
+    // destroy business history. Login is blocked when false.
     active: boolean('active').notNull().default(true),
-    // Bloqueio de conta por tentativas de login — complementa (não substitui)
-    // o rate-limit por IP do endpoint: barra por CONTA mesmo se o atacante
-    // distribuir tentativas entre vários IPs. Zerado a cada login bem-sucedido.
+    // Account lockout for login attempts — complements (doesn't replace)
+    // the endpoint's per-IP rate limit: blocks by ACCOUNT even if the attacker
+    // distributes attempts across multiple IPs. Reset to zero on every successful login.
     failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

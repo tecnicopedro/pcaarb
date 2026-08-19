@@ -152,7 +152,7 @@ export default function IntegracoesPage() {
         body: {
           name: newKeyName,
           role: newKeyRole,
-          // Input type="date" só dá a data — expira no fim do dia escolhido.
+          // Input type="date" only gives the date — it expires at the end of the chosen day.
           expiresAt: newKeyExpiresAt ? new Date(`${newKeyExpiresAt}T23:59:59`).toISOString() : undefined,
         },
       }),

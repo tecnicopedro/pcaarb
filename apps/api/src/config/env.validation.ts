@@ -3,10 +3,10 @@ import { z } from 'zod';
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
-  // DATABASE_URL: conexão com privilégio de dono das tabelas — usada só por
-  // migrations/drizzle-kit. APP_DATABASE_URL: conexão de runtime da API, com
-  // uma role restrita (sem SUPERUSER/BYPASSRLS) para que as policies de RLS
-  // realmente filtrem por tenant. Nunca usar DATABASE_URL na app em runtime.
+  // DATABASE_URL: connection with table-owner privilege — used only by
+  // migrations/drizzle-kit. APP_DATABASE_URL: the API's runtime connection, on
+  // a restricted role (no SUPERUSER/BYPASSRLS) so RLS policies actually
+  // filter by tenant. Never use DATABASE_URL in the app at runtime.
   DATABASE_URL: z.string().url(),
   APP_DATABASE_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET precisa de ao menos 32 caracteres'),

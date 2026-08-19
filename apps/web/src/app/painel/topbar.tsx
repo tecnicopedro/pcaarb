@@ -41,9 +41,9 @@ type NavEntry =
   | { kind: 'link'; link: NavLink }
   | { kind: 'group'; label: string; icon: LucideIcon; items: NavLink[] };
 
-// Agrupado em vez de uma lista única (que passou de 14 itens e obrigava a
-// rolar a barra pra encontrar algo): Painel/PDV ficam soltos por serem as
-// telas mais usadas no dia a dia, o resto entra em 4 grupos por área.
+// Grouped instead of a single list (which grew past 14 items and forced
+// scrolling the bar to find anything): Painel/PDV stay loose since they're
+// the most used screens day-to-day, the rest go into 4 groups by area.
 const NAV_ENTRIES: NavEntry[] = [
   { kind: 'link', link: { href: '/painel', label: 'Painel', icon: LayoutDashboard } },
   { kind: 'link', link: { href: '/painel/pdv', label: 'PDV', icon: ShoppingCart } },
@@ -177,13 +177,13 @@ function NavGroup({
   );
 }
 
-// Estado de qual dropdown está aberto precisa resetar quando a rota muda
-// (link dentro do grupo, ou Painel/PDV clicados enquanto outro grupo estava
-// aberto). Em vez de useEffect ou comparar ref durante o render (ambos
-// proibidos pelas regras de hooks deste projeto — setState em effect causa
-// ciclo de render em cascata, e ler/escrever ref durante render quebra sob
-// memoização do compiler), o componente inteiro é remontado via key={pathname}
-// no Topbar — reseta openGroup pro valor inicial de graça, sem efeito nenhum.
+// The state of which dropdown is open needs to reset when the route changes
+// (a link inside the group, or Painel/PDV clicked while another group was
+// open). Instead of useEffect or comparing a ref during render (both
+// forbidden by this project's hooks rules — setState in an effect causes a
+// cascading render cycle, and reading/writing a ref during render breaks
+// under the compiler's memoization), the whole component is remounted via
+// key={pathname} on the Topbar — resetting openGroup to its initial value for free, with no effect at all.
 function NavBar() {
   const pathname = usePathname();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
@@ -226,9 +226,9 @@ export function Topbar() {
 
   function logout() {
     const refreshToken = localStorage.getItem('pcaarb_refresh_token');
-    // Best-effort: revoga o refresh token no servidor pra ele não continuar
-    // válido até expirar. Se falhar (rede fora, etc.), o logout local segue
-    // normal — o usuário não pode ficar preso na tela por causa disso.
+    // Best-effort: revokes the refresh token on the server so it doesn't stay
+    // valid until it expires. If it fails (network down, etc.), the local
+    // logout proceeds normally — the user can't get stuck on the screen because of this.
     if (refreshToken) {
       apiFetch('/auth/logout', { method: 'POST', body: { refreshToken } }).catch(() => {});
     }

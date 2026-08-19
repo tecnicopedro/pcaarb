@@ -1,13 +1,14 @@
-// Gera CSV compatível com Excel/planilhas (BOM UTF-8 + separador ";", padrão
-// que o Excel em pt-BR espera; vírgula como separador de campo quebra em
-// qualquer configuração regional brasileira).
+// Generates CSV compatible with Excel/spreadsheets (UTF-8 BOM + ";" separator,
+// the pattern that Excel in pt-BR expects; comma as field separator breaks in
+// any Brazilian regional configuration).
 const BOM = '﻿';
 
-// Campos como descrição de conta financeira ou nome de cliente/fornecedor são
-// texto livre cadastrado por usuário do tenant — se algum contiver um valor
-// começando com =, +, -, @, tab ou CR, Excel/Sheets pode interpretar como
-// fórmula ao abrir a planilha (CSV injection). Prefixo com aspas simples
-// neutraliza sem alterar o valor visível (Excel trata como "forçar texto").
+// Fields like a finance entry description or customer/supplier name are
+// free text entered by a tenant user — if one contains a value starting
+// with =, +, -, @, tab or CR, Excel/Sheets may interpret it as a formula
+// when opening the spreadsheet (CSV injection). Prefixing with a single
+// quote neutralizes it without changing the visible value (Excel treats
+// it as "force text").
 const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
 
 function escapeField(value: string | number): string {

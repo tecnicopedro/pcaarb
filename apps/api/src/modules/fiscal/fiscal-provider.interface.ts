@@ -33,9 +33,10 @@ export interface FiscalCancelResult {
 }
 
 /**
- * Interface do emissor fiscal (NFC-e) — ver docs/03. O resto do sistema fala
- * só com esta interface; trocar de provedor (Focus NFe, PlugNotas, eNotas...)
- * é escrever um novo adapter, não reescrever o fluxo de venda.
+ * Fiscal document issuer (NFC-e) interface — see docs/03. The rest of the
+ * system talks only to this interface; switching providers (Focus NFe,
+ * PlugNotas, eNotas...) is writing a new adapter, not rewriting the sale
+ * flow.
  */
 export interface FiscalProvider {
   issueNFCe(params: FiscalIssueParams): Promise<FiscalIssueResult>;

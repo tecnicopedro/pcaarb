@@ -6,9 +6,10 @@ import { runWithTenant } from '../../database/tenant-context';
 import { stores, type StoreRow } from '../../database/schema/index';
 import { BillingService } from '../billing/billing.service';
 
-// Planos que podem operar mais de uma loja — é literalmente o que o plano
-// Multi-loja vende (ver SUBSCRIPTION_PLAN_CATALOG). Toda conta nasce com uma
-// loja (TenantsService.registerWithOwner); criar a 2ª é o gate real.
+// Plans that can operate more than one store — this is literally what the
+// Multi-loja plan sells (see SUBSCRIPTION_PLAN_CATALOG). Every account is
+// born with one store (TenantsService.registerWithOwner); creating the 2nd
+// one is the real gate.
 const MULTI_STORE_PLANS = new Set(['multi_loja', 'enterprise']);
 
 @Injectable()
@@ -18,9 +19,9 @@ export class StoresService {
     private readonly billingService: BillingService,
   ) {}
 
-  // Ordenado por criação: a loja padrão criada no registro do tenant sempre
-  // vem primeiro — usado por testes e pela UI pra assumir "a primeira é a
-  // original" sem precisar de outro sinal.
+  // Ordered by creation: the default store created at tenant registration
+  // always comes first — used by tests and the UI to assume "the first one
+  // is the original" without needing another signal.
   async list(tenantId: string): Promise<StoreRow[]> {
     return runWithTenant(this.db, tenantId, (tx) =>
       tx.select().from(stores).where(eq(stores.tenantId, tenantId)).orderBy(asc(stores.createdAt)),
@@ -44,12 +45,13 @@ export class StoresService {
     });
   }
 
-  // Reavalia o plano a cada USO, não só na criação — achado em revisão de
-  // segurança (2026-08-17): sem isso, assinar Multi-loja, criar lojas extras
-  // e depois voltar pro Starter deixava as lojas extras utilizáveis pra
-  // sempre (a checagem de create() só rodava uma vez). A loja mais antiga do
-  // tenant (a padrão, criada no registro) nunca é bloqueada — todo tenant
-  // precisa conseguir operar pelo menos uma loja, em qualquer plano.
+  // Re-evaluates the plan on every USE, not just on creation — found during
+  // a security review (2026-08-17): without this, subscribing to
+  // Multi-loja, creating extra stores, and then downgrading back to
+  // Starter left the extra stores usable forever (the create() check only
+  // ran once). The tenant's oldest store (the default one, created at
+  // registration) is never blocked — every tenant needs to be able to
+  // operate at least one store, on any plan.
   async assertUsable(tenantId: string, storeId: string): Promise<StoreRow> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const [store] = await tx

@@ -1,15 +1,16 @@
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 
-// Extraído de main.ts pra poder ser reaplicado no bootstrap de teste
-// (createTestingModule não passa por main.ts) — assim o e2e de CORS testa a
-// configuração real, não uma cópia que pode divergir dela com o tempo.
+// Extracted from main.ts so it can be reapplied in the test bootstrap
+// (createTestingModule doesn't go through main.ts) — this way the CORS e2e
+// test exercises the real configuration, not a copy that could drift from it
+// over time.
 export function buildCorsOptions(origin: string): CorsOptions {
   return {
     origin,
     credentials: true,
-    // Content-Disposition não está na lista "safe" que o browser expõe por
-    // padrão em fetch() cross-origin — sem isso, o front não consegue ler o
-    // nome do arquivo que os downloads (ex.: exportação de relatórios) mandam.
+    // Content-Disposition isn't on the "safe" list the browser exposes by
+    // default on a cross-origin fetch() — without this, the frontend can't
+    // read the filename that downloads (e.g. report exports) send.
     exposedHeaders: ['Content-Disposition'],
   };
 }

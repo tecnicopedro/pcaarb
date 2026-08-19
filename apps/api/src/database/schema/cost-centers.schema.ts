@@ -7,8 +7,8 @@ export const costCenters = pgTable('cost_centers', {
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
-  // Sem exclusão definitiva — mesma regra de produto — porque finance_entries
-  // pode referenciar um centro de custo já "desativado" no histórico.
+  // No hard delete — same product rule — because finance_entries
+  // can reference a cost center that's already "deactivated" in the history.
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

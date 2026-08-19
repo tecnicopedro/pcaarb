@@ -44,9 +44,9 @@ function ProgramSettings() {
   return <ProgramSettingsForm program={programQuery.data} canEdit={canEdit} />;
 }
 
-// Componente à parte, montado só quando programQuery.data já existe: os
-// useState abaixo inicializam direto com os dados carregados, sem precisar
-// de um useEffect pra sincronizar (evita o cascading render que isso causa).
+// Separate component, mounted only once programQuery.data already exists: the
+// useState calls below initialize directly with the loaded data, without
+// needing a useEffect to sync (avoids the cascading render that causes).
 function ProgramSettingsForm({ program, canEdit }: { program: LoyaltyProgram; canEdit: boolean }) {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();

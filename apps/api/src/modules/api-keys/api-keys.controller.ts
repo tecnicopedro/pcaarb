@@ -7,12 +7,12 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { UsersService } from '../users/users.service';
 import { ApiKeysService } from './api-keys.service';
 
-// Mesmo subject 'Integration' do módulo de marketplace — chave de API É uma
-// forma de configurar integração externa, não um conceito à parte que
-// precisaria de um novo subject CASL. 'Integration' é excluído de
-// permissionSubjectSchema (packages/shared), então só o papel base
-// admin/owner chega aqui, nunca por override pontual — ver o comentário
-// nesse schema pra o motivo (achado de revisão de segurança, 2026-08-18).
+// Same 'Integration' subject as the marketplace module — an API key IS a
+// way of configuring an external integration, not a separate concept that
+// would need its own CASL subject. 'Integration' is excluded from
+// permissionSubjectSchema (packages/shared), so only the base admin/owner
+// role reaches here, never via a one-off override — see the comment in
+// that schema for the reason (security review finding, 2026-08-18).
 @ApiTags('api-keys')
 @ApiBearerAuth()
 @Controller('api-keys')
@@ -34,8 +34,8 @@ export class ApiKeysController {
     @CurrentUser() user: JwtPayload,
     @Body(new ZodValidationPipe(createApiKeySchema)) body: CreateApiKeyInput,
   ) {
-    // Papel lido fresco do banco (não do JWT, que pode estar desatualizado)
-    // — mesmo cuidado de UsersController.updateRole.
+    // Role read fresh from the database (not from the JWT, which may be
+    // stale) — same precaution as UsersController.updateRole.
     const acting = await this.usersService.findById(user.sub);
     if (!acting) {
       throw new UnauthorizedException('Usuário autenticado não encontrado');

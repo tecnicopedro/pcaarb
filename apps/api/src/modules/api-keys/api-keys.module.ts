@@ -7,8 +7,8 @@ import { ApiKeysService } from './api-keys.service';
   imports: [UsersModule],
   controllers: [ApiKeysController],
   providers: [ApiKeysService],
-  // Exportado pro JwtAuthGuard (global, declarado em AppModule) conseguir
-  // validar uma chave de API como forma alternativa de autenticação.
+  // Exported so JwtAuthGuard (global, declared in AppModule) can validate
+  // an API key as an alternative form of authentication.
   exports: [ApiKeysService],
 })
 export class ApiKeysModule {}

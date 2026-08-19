@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { EmailProvider, SendInviteEmailParams, SendPasswordResetEmailParams } from './email-provider.interface';
 
-/** Usado só em teste/dev sem credencial configurada — nunca em produção. */
+/** Used only in test/dev without a configured credential — never in production. */
 @Injectable()
 export class MockEmailProvider implements EmailProvider {
   private readonly logger = new Logger(MockEmailProvider.name);

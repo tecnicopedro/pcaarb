@@ -20,10 +20,10 @@ export class DataPrivacyService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  // "Tudo sobre esta pessoa" — junta cliente + vendas (com itens/pagamentos)
-  // + ledger de fidelidade + lançamentos financeiros ligados a ele. JSON puro
-  // (não um CSV/relatório formatado): é um dump de portabilidade de dados,
-  // não uma tela de negócio.
+  // "Everything about this person" — combines customer + sales (with
+  // items/payments) + loyalty ledger + finance entries linked to them.
+  // Plain JSON (not a formatted CSV/report): it's a data-portability dump,
+  // not a business screen.
   async exportCustomerData(tenantId: string, customerId: string, actorUserId: string) {
     const result = await runWithTenant(this.db, tenantId, async (tx) => {
       const [customer] = await tx
@@ -71,12 +71,12 @@ export class DataPrivacyService {
     return result;
   }
 
-  // Zera nome/documento/e-mail/telefone mas mantém o id — preserva
-  // sales.customer_id/finance_entries.customer_id (histórico de venda e
-  // fiscal precisa sobreviver ~5 anos por lei mesmo depois de um pedido de
-  // exclusão) e loyalty_ledger_entries.customer_id (ledger é imutável por
-  // design — um DELETE físico do cliente cascateia e destrói o histórico de
-  // pontos, violando o próprio invariante documentado da tabela).
+  // Zeroes out name/document/email/phone but keeps the id — preserves
+  // sales.customer_id/finance_entries.customer_id (sales and fiscal
+  // history must survive ~5 years by law even after a deletion request)
+  // and loyalty_ledger_entries.customer_id (the ledger is immutable by
+  // design — a physical DELETE of the customer would cascade and destroy
+  // the points history, violating the table's own documented invariant).
   async anonymizeCustomerData(tenantId: string, customerId: string, actorUserId: string | null): Promise<CustomerRow> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const [customer] = await tx
@@ -98,9 +98,9 @@ export class DataPrivacyService {
     });
   }
 
-  // Usado por CustomersService.remove() pra decidir entre apagar de verdade
-  // (nada a perder) ou anonimizar em vez de apagar (preserva o histórico que
-  // referencia o cliente).
+  // Used by CustomersService.remove() to decide between actually deleting
+  // (nothing to lose) or anonymizing instead of deleting (preserves the
+  // history that references the customer).
   async hasHistory(tenantId: string, customerId: string): Promise<boolean> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const [sale] = await tx

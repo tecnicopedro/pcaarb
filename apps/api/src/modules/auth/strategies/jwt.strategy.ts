@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: needed for NestJS to inject via emitDecoratorMetadata.
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';

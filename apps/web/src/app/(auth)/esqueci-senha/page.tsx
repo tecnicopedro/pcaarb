@@ -20,8 +20,8 @@ export default function ForgotPasswordPage() {
   } = useForm<ForgotPasswordInput>({ resolver: zodResolver(forgotPasswordSchema) });
 
   const mutation = useMutation({
-    // Sempre "sucede" do ponto de vista do front, exista ou não o e-mail —
-    // mesma disciplina anti-enumeração do backend (ver AuthService).
+    // Always "succeeds" from the frontend's point of view, whether or not the
+    // e-mail exists — same anti-enumeration discipline as the backend (see AuthService).
     mutationFn: (input: ForgotPasswordInput) => apiFetch('/auth/forgot-password', { method: 'POST', body: input }),
     onSuccess: () => setSent(true),
     onError: () => setSent(true),

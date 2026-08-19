@@ -57,8 +57,9 @@ export class CashSessionsService {
       throw new ConflictException('Você já tem um caixa aberto. Feche-o antes de abrir outro.');
     }
 
-    // Revalida a loja (existe, ativa, e coberta pelo plano atual) a cada
-    // abertura de caixa — não só que ela exista, ver StoresService.assertUsable.
+    // Revalidates the store (exists, active, and covered by the current
+    // plan) on every cash session open — not just that it exists, see
+    // StoresService.assertUsable.
     await this.storesService.assertUsable(tenantId, input.storeId);
 
     return runWithTenant(this.db, tenantId, async (tx) => {
@@ -133,10 +134,10 @@ export class CashSessionsService {
     );
   }
 
-  // Usado pelo SaleReturnsService dentro da própria transação da devolução,
-  // pra reembolso em dinheiro e reversão de estoque/pontos/fiscal serem
-  // atômicos (ou tudo, ou nada). Assume que o chamador já validou que a
-  // sessão está aberta antes de entrar na transação — mesmo racional de
+  // Used by SaleReturnsService inside the return's own transaction, so the
+  // cash refund and the stock/points/fiscal reversal are atomic (all or
+  // nothing). Assumes the caller already validated that the session is
+  // open before entering the transaction — same rationale as
   // StockService.applyMovement vs. createMovement.
   async addMovementTx(
     tx: Database,

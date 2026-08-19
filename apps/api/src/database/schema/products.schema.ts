@@ -16,19 +16,19 @@ export const products = pgTable(
     unit: text('unit').notNull().default('un'),
     priceCents: integer('price_cents').notNull(),
     costPriceCents: integer('cost_price_cents'),
-    // Saldo denormalizado, mantido em sincronia com stock_movements dentro da
-    // mesma transação (evita somar o ledger inteiro a cada leitura).
+    // Denormalized balance, kept in sync with stock_movements within the
+    // same transaction (avoids summing the entire ledger on every read).
     stockQuantity: integer('stock_quantity').notNull().default(0),
-    // Produtos sem controle de estoque (serviços, itens sob encomenda) não
-    // entram na validação de saldo nem são descontados na venda.
+    // Products without stock tracking (services, made-to-order items) don't
+    // go through balance validation and aren't deducted on sale.
     trackStock: boolean('track_stock').notNull().default(true),
     active: boolean('active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    // NULL é tratado como distinto pelo Postgres: vários produtos sem SKU
-    // convivem tranquilamente, mas SKUs informados não podem repetir no tenant.
+    // NULL is treated as distinct by Postgres: several products without a SKU
+    // can coexist fine, but SKUs that are provided can't repeat within the tenant.
     tenantSkuUnique: uniqueIndex('products_tenant_sku_unique').on(table.tenantId, table.sku),
   }),
 );

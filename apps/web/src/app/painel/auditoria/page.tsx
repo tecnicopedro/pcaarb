@@ -29,10 +29,10 @@ function formatDateTime(iso: string): string {
 export default function AuditoriaPage() {
   const accessToken = useAccessToken();
   const meQuery = useCurrentUser();
-  // GET /audit-logs é owner-only no backend (subject CASL 'AuditLog',
-  // deliberadamente fora de permissionSubjectSchema — ver ability.factory.ts)
-  // — sem esse gate aqui, qualquer outro papel navegando pra essa página
-  // ficaria vendo a consulta falhar com 403 sem nenhuma explicação.
+  // GET /audit-logs is owner-only on the backend (CASL subject 'AuditLog',
+  // deliberately kept outside permissionSubjectSchema — see ability.factory.ts)
+  // — without this gate here, any other role navigating to this page
+  // would just see the query fail with 403 with no explanation.
   const canView = meQuery.data?.user.role === 'owner';
 
   const logsQuery = useQuery({

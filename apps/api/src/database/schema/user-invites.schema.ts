@@ -3,10 +3,10 @@ import { roleEnum } from './users.schema';
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 
-// Tabela de identidade/onboarding, como refresh_tokens e users: o accept
-// precisa localizar o convite ANTES de qualquer contexto de tenant existir
-// (ver tenant-context.ts), então fica fora do RLS de propósito. Isolamento
-// vem do id (UUID) + hash do token, igual refresh_tokens.
+// Identity/onboarding table, like refresh_tokens and users: accept
+// needs to locate the invite BEFORE any tenant context exists
+// (see tenant-context.ts), so it's kept outside RLS on purpose. Isolation
+// comes from the id (UUID) + token hash, same as refresh_tokens.
 export const userInvites = pgTable('user_invites', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')

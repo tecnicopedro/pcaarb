@@ -12,24 +12,24 @@ function getSnapshot() {
 }
 
 function getServerSnapshot() {
-  // undefined ("ainda não sei"), nunca null ("confirmei que não tem token").
-  // getSnapshot() real só retorna string | null — undefined é um terceiro
-  // estado exclusivo desta primeira renderização de hidratação, que existe
-  // só pra quem lê o valor conseguir distinguir "ainda não confirmei" de
-  // "confirmei que está deslogado". Sem essa distinção, um efeito que reage
-  // a "accessToken === null" pra redirecionar pro /login dispara nessa
-  // primeira renderização (que sempre usa este snapshot do servidor, mesmo
-  // no cliente, só pra bater com o HTML vindo do SSR) — ANTES do
-  // useSyncExternalStore corrigir pro valor real do localStorage, chutando
-  // pra fora um usuário que na verdade está logado, em todo reload/aba nova.
+  // undefined ("don't know yet"), never null ("confirmed there's no token").
+  // The real getSnapshot() only returns string | null — undefined is a third
+  // state exclusive to this first hydration render, which exists just so
+  // whoever reads the value can distinguish "haven't confirmed yet" from
+  // "confirmed logged out". Without this distinction, an effect that reacts
+  // to "accessToken === null" to redirect to /login would fire on this
+  // first render (which always uses this server snapshot, even on the
+  // client, just to match the HTML coming from SSR) — BEFORE
+  // useSyncExternalStore corrects it to the real localStorage value, kicking
+  // out a user who is actually logged in, on every reload/new tab.
   return undefined;
 }
 
 /**
- * Lê o access token via useSyncExternalStore em vez de useState+useEffect:
- * evita setState dentro de effect e mantém o snapshot do servidor
- * (undefined) consistente com a primeira renderização no cliente, sem
- * mismatch de hidratação.
+ * Reads the access token via useSyncExternalStore instead of useState+useEffect:
+ * avoids setState inside an effect and keeps the server snapshot
+ * (undefined) consistent with the first render on the client, without
+ * a hydration mismatch.
  */
 export function useAccessToken() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);

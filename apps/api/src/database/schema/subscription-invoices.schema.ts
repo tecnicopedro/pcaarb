@@ -4,9 +4,9 @@ import { subscriptions } from './subscriptions.schema';
 
 export const subscriptionInvoiceStatusEnum = pgEnum('subscription_invoice_status', ['paid', 'failed']);
 
-// Ledger imutável de tentativas de cobrança — nunca atualizado depois de
-// criado, mesmo padrão de loyalty_ledger_entries/stock_movements: histórico
-// de fatura é auditoria, não estado mutável.
+// Immutable ledger of billing attempts — never updated after
+// creation, same pattern as loyalty_ledger_entries/stock_movements: invoice
+// history is an audit trail, not mutable state.
 export const subscriptionInvoices = pgTable('subscription_invoices', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')

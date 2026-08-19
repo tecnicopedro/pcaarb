@@ -55,8 +55,8 @@ export class LoyaltyService {
     });
   }
 
-  // --- Reaproveitado pelo SalesService dentro da própria transação da venda,
-  // pro resgate/ganho de pontos serem atômicos com a venda (ou tudo, ou nada).
+  // --- Reused by SalesService inside the sale's own transaction, so the
+  // points redemption/earning is atomic with the sale (all or nothing).
 
   async getOrCreateProgramTx(tx: Database, tenantId: string): Promise<LoyaltyProgramRow> {
     const [existing] = await tx.select().from(loyaltyPrograms).where(eq(loyaltyPrograms.tenantId, tenantId)).limit(1);
@@ -71,7 +71,7 @@ export class LoyaltyService {
     if (created) {
       return created;
     }
-    // Corrida rara: outra transação criou a linha entre o select e o insert.
+    // Rare race condition: another transaction created the row between the select and the insert.
     const [afterRace] = await tx.select().from(loyaltyPrograms).where(eq(loyaltyPrograms.tenantId, tenantId)).limit(1);
     if (!afterRace) {
       throw new Error('Falha ao criar configuração de fidelidade');

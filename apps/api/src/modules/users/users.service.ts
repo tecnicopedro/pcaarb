@@ -9,7 +9,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: needed for NestJS to inject via emitDecoratorMetadata.
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -44,12 +44,12 @@ export class UsersService {
     return user;
   }
 
-  // Chamado pelo AuthService a cada tentativa de login com senha errada —
-  // mas só até a conta bloquear: uma vez bloqueada, `AuthService.login()`
-  // rejeita antes mesmo de chegar aqui (checagem de `lockedUntil` acontece
-  // antes da senha decidir a resposta, ver comentário lá — achado de
-  // revisão de segurança, 2026-08-19), então o bloqueio expira sozinho depois
-  // de LOGIN_LOCKOUT_MS, sem ser estendido por tentativas subsequentes.
+  // Called by AuthService on every failed login attempt — but only until the
+  // account locks: once locked, `AuthService.login()` rejects before even
+  // reaching here (the `lockedUntil` check happens before the password
+  // decides the response, see the comment there — security review finding,
+  // 2026-08-19), so the lock expires on its own after LOGIN_LOCKOUT_MS,
+  // without being extended by subsequent attempts.
   async registerFailedLogin(user: UserRow): Promise<void> {
     const attempts = user.failedLoginAttempts + 1;
     const justLocked = attempts === LOGIN_LOCKOUT_THRESHOLD;
@@ -67,8 +67,8 @@ export class UsersService {
     }
   }
 
-  // Chamado em todo login bem-sucedido — zera o contador pra não acumular
-  // "quase bloqueios" de tentativas erradas espaçadas ao longo do tempo.
+  // Called on every successful login — resets the counter so "near-locks"
+  // from wrong attempts spread out over time don't accumulate.
   async clearLoginLockout(userId: string): Promise<void> {
     await this.db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, userId));
   }
@@ -81,10 +81,9 @@ export class UsersService {
     return user;
   }
 
-  // Exclui contas de serviço (chaves de API, ver api-keys.schema.ts) — essa
-  // listagem alimenta a tela de Usuários e seletores de vendedor, feitos
-  // pra gente de verdade; a chave de API tem sua própria tela em
-  // /painel/integracoes.
+  // Excludes service accounts (API keys, see api-keys.schema.ts) — this
+  // listing feeds the Users screen and salesperson selectors, meant for
+  // actual people; the API key has its own screen at /painel/integracoes.
   async listByTenant(tenantId: string): Promise<UserRow[]> {
     return this.db.select().from(users).where(and(eq(users.tenantId, tenantId), eq(users.isServiceAccount, false)));
   }
@@ -130,11 +129,11 @@ export class UsersService {
     return updated;
   }
 
-  // Nunca DELETE físico — um usuário tem FK em vendas/estoque/caixa/
-  // auditoria por todo canto, apagar destruiria histórico de negócio (mesmo
-  // racional de products.active/stores.active). Login fica bloqueado pra
-  // `active=false` (ver AuthService.login). Sem reativação nesta fatia —
-  // mesmo escopo mínimo de revokeInvite, que também não tem "desfazer".
+  // Never a physical DELETE — a user has FKs in sales/inventory/cash
+  // register/audit everywhere, deleting would destroy business history
+  // (same rationale as products.active/stores.active). Login is blocked for
+  // `active=false` (see AuthService.login). No reactivation in this slice —
+  // same minimal scope as revokeInvite, which also has no "undo".
   async deactivate(tenantId: string, actingUserId: string, actingRole: Role, targetUserId: string): Promise<UserRow> {
     if (targetUserId === actingUserId) {
       throw new BadRequestException('Você não pode desativar sua própria conta — peça pra outro administrador fazer isso');
@@ -165,12 +164,13 @@ export class UsersService {
       }
     }
 
-    // Revoga as sessões existentes na mesma transação — achado de revisão de
-    // segurança (2026-08-19): sem isso, um refresh token emitido antes da
-    // desativação continuava funcionando pra sempre via POST /auth/refresh
-    // (cada chamada rotaciona pra um token novo de mais 7 dias), porque só
-    // AuthService.login() checava `active` — refresh nunca checava. Mesmo
-    // padrão já usado em AuthService.resetPassword() pro mesmo motivo.
+    // Revokes existing sessions in the same transaction — security review
+    // finding (2026-08-19): without this, a refresh token issued before
+    // deactivation kept working forever via POST /auth/refresh (each call
+    // rotates it into a new token for another 7 days), because only
+    // AuthService.login() checked `active` — refresh never did. Same
+    // pattern already used in AuthService.resetPassword() for the same
+    // reason.
     return this.db.transaction(async (tx) => {
       const [updated] = await tx.update(users).set({ active: false }).where(eq(users.id, targetUserId)).returning();
       if (!updated) {
@@ -215,9 +215,9 @@ export class UsersService {
     const tokenHash = await bcrypt.hash(rawToken, BCRYPT_ROUNDS);
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
 
-    // Convite sem e-mail entregue não serve pra nada — se o envio falhar, o
-    // registro do convite é desfeito junto (nada de linha "fantasma" que o
-    // convidado nunca vai saber que existe e que bloqueia reenvio).
+    // An invite whose email was never delivered is useless — if sending
+    // fails, the invite record is rolled back too (no "ghost" row that the
+    // invitee will never know exists and that blocks resending).
     return this.db.transaction(async (tx) => {
       const [invite] = await tx
         .insert(userInvites)

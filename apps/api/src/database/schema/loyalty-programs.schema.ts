@@ -1,8 +1,8 @@
 import { pgTable, uuid, integer, boolean, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.schema';
 
-// Uma linha por tenant (upsert-on-read no service) — não um catálogo de
-// "programas" plural, só a configuração do programa de fidelidade do tenant.
+// One row per tenant (upsert-on-read in the service) — not a catalog of
+// plural "programs", just the tenant's loyalty program configuration.
 export const loyaltyPrograms = pgTable(
   'loyalty_programs',
   {
@@ -11,9 +11,9 @@ export const loyaltyPrograms = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     active: boolean('active').notNull().default(true),
-    // Pontos ganhos a cada R$1 (100 centavos) gastos.
+    // Points earned for every R$1 (100 cents) spent.
     earnRatePoints: integer('earn_rate_points').notNull().default(1),
-    // Valor em centavos de 1 ponto no resgate.
+    // Value in cents of 1 point on redemption.
     redeemValueCents: integer('redeem_value_cents').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

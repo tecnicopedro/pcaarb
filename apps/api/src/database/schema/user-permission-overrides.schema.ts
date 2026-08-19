@@ -4,11 +4,11 @@ import { users } from './users.schema';
 
 export const permissionEffectEnum = pgEnum('permission_effect', ['allow', 'deny']);
 
-// Tabela de identidade/controle de acesso, mesmo grupo de users/refresh_tokens
-// (ver tenant-context.ts) — sem RLS de propósito. É consultada pela AbilityGuard
-// em toda request autenticada; isolamento por tenant/usuário vem de FK + filtro
-// explícito nas queries, não de policy de banco, pra evitar abrir uma transação
-// extra nesse caminho quente.
+// Identity/access-control table, same group as users/refresh_tokens
+// (see tenant-context.ts) — no RLS on purpose. It's queried by AbilityGuard
+// on every authenticated request; isolation by tenant/user comes from FK +
+// explicit filtering in the queries, not a database policy, to avoid opening
+// an extra transaction on this hot path.
 export const userPermissionOverrides = pgTable(
   'user_permission_overrides',
   {
@@ -19,10 +19,10 @@ export const userPermissionOverrides = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    // subject/action ficam como texto livre (não enum de banco): a lista de
-    // subjects do CASL cresce por módulo (ver ability.factory.ts) e criar uma
-    // migration toda vez que um módulo novo aparece seria atrito desnecessário
-    // — a validação de valores permitidos acontece no Zod (packages/shared).
+    // subject/action are kept as free text (not a database enum): the list of
+    // CASL subjects grows per module (see ability.factory.ts) and creating a
+    // migration every time a new module appears would be unnecessary friction
+    // — validation of allowed values happens in Zod (packages/shared).
     subject: text('subject').notNull(),
     action: text('action').notNull(),
     effect: permissionEffectEnum('effect').notNull(),
@@ -32,7 +32,7 @@ export const userPermissionOverrides = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
-    // Um usuário só tem UMA regra por (subject, action) — criar de novo substitui.
+    // A user only has ONE rule per (subject, action) — creating a new one replaces it.
     userSubjectActionUnique: uniqueIndex('user_permission_overrides_unique').on(
       table.tenantId,
       table.userId,

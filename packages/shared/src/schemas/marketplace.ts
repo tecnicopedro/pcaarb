@@ -42,8 +42,8 @@ export const marketplaceListingSchema = z.object({
 
 export type MarketplaceListing = z.infer<typeof marketplaceListingSchema>;
 
-// Listagem com dados do produto já resolvidos, pra tela não precisar de um
-// segundo fetch — o mesmo padrão usado em outros relatórios/listas do app.
+// Listing with product data already resolved, so the screen doesn't need a
+// second fetch — the same pattern used in other reports/lists in the app.
 export const marketplaceListingWithProductSchema = marketplaceListingSchema.extend({
   productName: z.string(),
   productActive: z.boolean(),

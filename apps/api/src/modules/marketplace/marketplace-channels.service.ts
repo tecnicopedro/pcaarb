@@ -16,9 +16,10 @@ export class MarketplaceChannelsService {
     );
   }
 
-  // Provider é sempre 'mock' por enquanto — não existe handshake real de
-  // Shopify/Mercado Livre pra fazer aqui (ver marketplace-provider.interface.ts).
-  // externalStoreId é só um placeholder estável que identifica esta conexão.
+  // Provider is always 'mock' for now — there's no real Shopify/Mercado
+  // Livre handshake to do here (see marketplace-provider.interface.ts).
+  // externalStoreId is just a stable placeholder that identifies this
+  // connection.
   async create(tenantId: string, input: CreateMarketplaceChannelInput): Promise<MarketplaceChannelRow> {
     return runWithTenant(this.db, tenantId, async (tx) => {
       const [channel] = await tx

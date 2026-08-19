@@ -16,8 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRows } from '@/components/ui/skeleton';
 
-// Basis points <-> percentual exibido: 500 bps = 5%. Conversão só na borda
-// UI — a API e o banco trabalham sempre em bps (inteiro), nunca em float.
+// Basis points <-> displayed percentage: 500 bps = 5%. Conversion happens only
+// at the UI edge — the API and the database always work in bps (integer), never in float.
 function bpsToPercentText(bps: number): string {
   return (bps / 100).toString();
 }
@@ -47,9 +47,9 @@ function CommissionSettingsSection() {
   return <SettingsForm settings={settingsQuery.data} canEdit={canEdit} />;
 }
 
-// Mesmo padrão de ProgramSettingsForm em fidelidade/page.tsx: componente à
-// parte, montado só quando settingsQuery.data já existe — useState inicializa
-// direto dos dados carregados, sem useEffect de sincronização.
+// Same pattern as ProgramSettingsForm in fidelidade/page.tsx: a separate
+// component, mounted only once settingsQuery.data already exists — useState
+// initializes directly from the loaded data, with no sync useEffect.
 function SettingsForm({ settings, canEdit }: { settings: CommissionSettings; canEdit: boolean }) {
   const accessToken = useAccessToken();
   const queryClient = useQueryClient();

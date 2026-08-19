@@ -7,10 +7,10 @@ import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { apiKeys, users, type ApiKeyRow } from '../../database/schema/index';
 import { canAssignApiKeyRole } from './role-rank';
 
-// Prefixo estável e reconhecível (mesmo racional de chaves do Stripe/GitHub)
-// — ajuda a identificar um segredo PCAARB vazado por engano (ex.: em scanner
-// de segredo de repositório) e é como o guard de auth distingue uma chave de
-// API de um JWT sem precisar tentar decodificar os dois formatos.
+// Stable, recognizable prefix (same rationale as Stripe/GitHub keys) — helps
+// identify a PCAARB secret leaked by accident (e.g. by a repository secret
+// scanner) and is how the auth guard distinguishes an API key from a JWT
+// without having to try decoding both formats.
 export const API_KEY_PREFIX = 'pcaarb_live_';
 const BCRYPT_ROUNDS = 12;
 
@@ -50,17 +50,18 @@ export class ApiKeysService {
     return rows.map((row) => toApiKeyDto(row.apiKey, row.role));
   }
 
-  // actingRole é lido fresco do banco pelo controller (não confia no papel
-  // do JWT, que pode estar desatualizado) — mesmo cuidado de
-  // UsersService.inviteUser, mesmo motivo: sem isso um admin rebaixado
-  // depois de emitir o token ainda conseguiria mintar uma chave com papel
-  // de owner.
+  // actingRole is read fresh from the database by the controller (it does
+  // not trust the JWT's role, which may be stale) — same precaution as
+  // UsersService.inviteUser, same reason: without this, an admin who was
+  // demoted after their token was issued could still mint a key with the
+  // owner role.
   async create(tenantId: string, createdByUserId: string, actingRole: Role, input: CreateApiKeyInput): Promise<CreatedApiKey> {
-    // Ninguém minta uma chave com mais privilégio do que já tem — nem só
-    // o caso owner (achado de revisão de segurança de 2026-08-18: o
-    // subject 'Integration' que guarda este endpoint já foi excluído de
-    // permissionSubjectSchema por ser overridable e permitir esse
-    // caminho, este check é a segunda camada, não a única).
+    // No one can mint a key with more privilege than they already have —
+    // and not just for the owner case (security review finding from
+    // 2026-08-18: the 'Integration' subject guarding this endpoint was
+    // already excluded from permissionSubjectSchema for being overridable
+    // and allowing this path; this check is the second layer, not the
+    // only one).
     if (!canAssignApiKeyRole(actingRole, input.role)) {
       throw new ForbiddenException('Você não pode criar uma chave de API com papel maior que o seu');
     }
@@ -79,8 +80,9 @@ export class ApiKeysService {
           tenantId,
           name: `Chave de API — ${input.name}`,
           email: `apikey+${randomUUID()}@keys.pcaarb.internal`,
-          // Nunca revelado a ninguém — a conta de serviço não loga por senha,
-          // só existe pra satisfazer FKs e ser resolvida pelo CASL.
+          // Never revealed to anyone — the service account doesn't log in
+          // with a password, it only exists to satisfy FKs and to be
+          // resolved by CASL.
           passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_ROUNDS),
           role: input.role,
           isServiceAccount: true,
@@ -125,10 +127,9 @@ export class ApiKeysService {
     await this.db.update(apiKeys).set({ revokedAt: new Date(), revokedByUserId }).where(eq(apiKeys.id, id));
   }
 
-  // Caminho de autenticação (ver JwtAuthGuard) — roda ANTES de qualquer
-  // contexto de tenant existir, então consulta direto por keyHash (único
-  // globalmente), sem runWithTenant/RLS. Mesmo racional de
-  // UsersService.findByEmail no login.
+  // Authentication path (see JwtAuthGuard) — runs BEFORE any tenant context
+  // exists, so it queries directly by keyHash (globally unique), without
+  // runWithTenant/RLS. Same rationale as UsersService.findByEmail at login.
   async validate(rawKey: string): Promise<JwtPayload | null> {
     const keyHash = hashKey(rawKey);
     const [row] = await this.db
@@ -152,13 +153,14 @@ export class ApiKeysService {
     return { sub: row.user.id, tenantId: row.user.tenantId, role: row.user.role };
   }
 
-  // Best-effort: uma falha aqui (ex.: pico de conexões no banco) não pode
-  // derrubar a autenticação da request que já foi validada com sucesso.
+  // Best-effort: a failure here (e.g. a spike in database connections) must
+  // not take down the authentication of a request that already validated
+  // successfully.
   private async touchLastUsed(apiKeyId: string): Promise<void> {
     try {
       await this.db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, apiKeyId));
     } catch {
-      // ver comentário acima
+      // see comment above
     }
   }
 }

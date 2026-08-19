@@ -25,17 +25,17 @@ export interface MarketplaceIncomingOrder {
 }
 
 /**
- * Interface do canal de e-commerce/marketplace (Shopify, Mercado Livre...) —
- * mesmo padrão de PaymentProvider/FiscalProvider: o resto do sistema fala só
- * com esta interface, trocar de canal é escrever um novo adapter. Cobre as
- * duas operações que importam pro PDV+estoque: publicar/atualizar um produto
- * no canal, e puxar pedidos novos feitos por lá pra abater do estoque
- * compartilhado (sem isso, o mesmo item podia ser vendido duas vezes — uma
- * no balcão, outra online). Não modela o pedido importado como uma Sale de
- * PDV: uma venda de balcão exige caixa aberto (ver sales.schema.ts), o que
- * não existe pra um pedido feito de madrugada num marketplace. O que
- * realmente precisa ficar consistente entre os dois canais é o saldo de
- * estoque — ver MarketplaceOrdersService.
+ * E-commerce/marketplace channel interface (Shopify, Mercado Livre...) — same
+ * pattern as PaymentProvider/FiscalProvider: the rest of the system talks
+ * only to this interface, switching channels is writing a new adapter.
+ * Covers the two operations that matter for the POS+stock: publishing/
+ * updating a product on the channel, and pulling new orders placed there to
+ * deduct from shared stock (without this, the same item could be sold
+ * twice — once at the counter, once online). Doesn't model the imported
+ * order as a POS Sale: a counter sale requires an open cash session (see
+ * sales.schema.ts), which doesn't exist for an order placed at 3am on a
+ * marketplace. What actually needs to stay consistent between the two
+ * channels is the stock balance — see MarketplaceOrdersService.
  */
 export interface MarketplaceProvider {
   syncProduct(params: MarketplaceSyncProductParams): Promise<MarketplaceSyncProductResult>;

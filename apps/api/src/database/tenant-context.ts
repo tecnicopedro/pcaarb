@@ -2,17 +2,17 @@ import { sql } from 'drizzle-orm';
 import type { Database } from './drizzle.provider';
 
 /**
- * Executa `fn` dentro de uma transação com `app.tenant_id` setado na sessão,
- * para que policies de Row-Level Security filtrem os dados por tenant.
- * Segunda camada de isolamento, além do TenantStatusGuard na aplicação.
+ * Runs `fn` inside a transaction with `app.tenant_id` set on the session, so
+ * Row-Level Security policies filter data by tenant. A second isolation
+ * layer, on top of the application-level TenantStatusGuard.
  *
- * Usar nos módulos de dado de negócio a partir da Fase 1 (produtos, vendas,
- * estoque, financeiro...), sempre que o tenant já estiver resolvido do JWT.
- * As tabelas de identidade (tenants/users/refresh_tokens) ficam de fora de
- * propósito: login e registro precisam localizar o usuário/tenant ANTES de
- * qualquer contexto de tenant existir, então RLS ali bloquearia o próprio
- * fluxo de autenticação. O isolamento delas já é garantido por FK + índices
- * únicos e pelas queries explícitas dos services de auth.
+ * Use in business-data modules from Phase 1 onward (products, sales, stock,
+ * finance...), whenever the tenant has already been resolved from the JWT.
+ * The identity tables (tenants/users/refresh_tokens) are deliberately left
+ * out: login and registration need to locate the user/tenant BEFORE any
+ * tenant context exists, so RLS there would block the authentication flow
+ * itself. Their isolation is already guaranteed by FK constraints + unique
+ * indexes and by the auth services' explicit queries.
  */
 export async function runWithTenant<T>(
   db: Database,
@@ -20,8 +20,8 @@ export async function runWithTenant<T>(
   fn: (tx: Database) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    // SET LOCAL não aceita bind parameters no Postgres; set_config() é uma
-    // função normal e aceita `${tenantId}` como parâmetro com segurança.
+    // SET LOCAL doesn't accept bind parameters in Postgres; set_config() is a
+    // regular function and safely accepts `${tenantId}` as a parameter.
     await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`);
     return fn(tx as unknown as Database);
   });

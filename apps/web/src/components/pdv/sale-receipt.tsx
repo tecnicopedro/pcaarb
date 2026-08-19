@@ -14,11 +14,10 @@ interface SaleReceiptProps {
   storeName?: string;
 }
 
-// Elemento só existe pra ser impresso (ver .print-target em globals.css) —
-// nunca aparece na tela normal do PDV. Layout estreito (largura de
-// impressora térmica de recibo), fonte monoespaçada, sem nenhum componente
-// do design system (Card/Badge) de propósito: é um documento pra entregar
-// ao cliente, não uma tela do painel.
+// This element only exists to be printed (see .print-target in globals.css)
+// — never shows up on the normal PDV screen. Narrow layout (thermal receipt
+// printer width), monospace font, deliberately no design-system components
+// (Card/Badge): it's a document to hand to the customer, not a panel screen.
 export function SaleReceipt({ sale, companyName, storeName }: SaleReceiptProps) {
   const createdAt = new Date(sale.createdAt);
 

@@ -19,8 +19,8 @@ export const salePayments = pgTable('sale_payments', {
     .references(() => sales.id, { onDelete: 'cascade' }),
   method: paymentMethodEnum('method').notNull(),
   amountCents: integer('amount_cents').notNull(),
-  // Só preenchido para métodos que passam por gateway (cartão/Pix) — dinheiro
-  // liquida na hora e não tem transação de provedor.
+  // Only filled in for methods that go through a gateway (card/Pix) — cash
+  // settles instantly and has no provider transaction.
   providerTransactionId: text('provider_transaction_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

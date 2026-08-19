@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: required for NestJS to inject via emitDecoratorMetadata.
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import type { Env } from '../../config/env.validation';
 import type { EmailProvider, SendInviteEmailParams, SendPasswordResetEmailParams } from './email-provider.interface';
 
-// inviterName/companyName vêm de texto livre do usuário (nome no cadastro,
-// nome da empresa) — sem escape, dá pra injetar HTML no e-mail de convite.
+// inviterName/companyName come from free-text user input (name at signup,
+// company name) — without escaping, HTML could be injected into the invite email.
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -45,9 +45,9 @@ export class ResendEmailProvider implements EmailProvider {
     }
   }
 
-  // resetUrl é montado só a partir de CORS_ORIGIN (config) + id/token gerados
-  // no servidor — nenhum texto livre do usuário entra aqui, então não precisa
-  // do escapeHtml usado em sendInvite (inviterName/companyName).
+  // resetUrl is built only from CORS_ORIGIN (config) + server-generated
+  // id/token — no free-text user input goes in here, so it doesn't need
+  // the escapeHtml used in sendInvite (inviterName/companyName).
   async sendPasswordReset(params: SendPasswordResetEmailParams): Promise<void> {
     const { error } = await this.client.emails.send({
       from: this.fromEmail,

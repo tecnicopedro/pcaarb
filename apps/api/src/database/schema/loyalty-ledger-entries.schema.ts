@@ -6,9 +6,9 @@ import { users } from './users.schema';
 
 export const loyaltyLedgerTypeEnum = pgEnum('loyalty_ledger_type', ['earn', 'redeem', 'adjustment']);
 
-// Ledger, não um saldo mutável: saldo do cliente é sempre SUM(points) desta
-// tabela — mesmo raciocínio de sale_items ser snapshot, aqui é histórico
-// imutável (nunca UPDATE/DELETE de uma entrada já gravada).
+// Ledger, not a mutable balance: the customer's balance is always SUM(points)
+// from this table — same reasoning as sale_items being a snapshot, here it's
+// an immutable history (never UPDATE/DELETE an entry already written).
 export const loyaltyLedgerEntries = pgTable('loyalty_ledger_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -17,11 +17,11 @@ export const loyaltyLedgerEntries = pgTable('loyalty_ledger_entries', {
   customerId: uuid('customer_id')
     .notNull()
     .references(() => customers.id, { onDelete: 'cascade' }),
-  // Nula em ajuste manual — só entradas 'earn'/'redeem' nascem de uma venda.
+  // Null on a manual adjustment — only 'earn'/'redeem' entries originate from a sale.
   saleId: uuid('sale_id').references(() => sales.id),
   type: loyaltyLedgerTypeEnum('type').notNull(),
-  // Sinalizado: 'earn'/ajuste-crédito é positivo, 'redeem'/ajuste-débito é
-  // negativo. Saldo = soma direta, sem precisar olhar o "type" pra somar.
+  // Signed: 'earn'/credit-adjustment is positive, 'redeem'/debit-adjustment is
+  // negative. Balance = direct sum, without needing to look at "type" to add up.
   points: integer('points').notNull(),
   note: text('note'),
   createdBy: uuid('created_by').references(() => users.id),

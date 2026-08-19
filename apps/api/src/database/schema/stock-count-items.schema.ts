@@ -5,7 +5,7 @@ import { products } from './products.schema';
 
 export const stockCountItems = pgTable('stock_count_items', {
   id: uuid('id').primaryKey().defaultRandom(),
-  // Denormalizado de propósito, mesmo padrão de sale_items/purchase_order_items.
+  // Denormalized on purpose, same pattern as sale_items/purchase_order_items.
   tenantId: uuid('tenant_id')
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
@@ -16,9 +16,10 @@ export const stockCountItems = pgTable('stock_count_items', {
     .notNull()
     .references(() => products.id),
   productName: text('product_name').notNull(),
-  // Saldo do produto no momento em que a contagem foi aberta — só informativo,
-  // o ajuste final (StockCountsService.finalize) recalcula contra o saldo
-  // atual pra não perder movimentações que aconteceram durante a contagem.
+  // The product's balance at the moment the count was opened — informational
+  // only, the final adjustment (StockCountsService.finalize) recalculates
+  // against the current balance so as not to lose movements that happened
+  // during the count.
   expectedQuantity: integer('expected_quantity').notNull(),
   countedQuantity: integer('counted_quantity'),
 });

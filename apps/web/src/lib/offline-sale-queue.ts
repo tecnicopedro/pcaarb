@@ -6,17 +6,16 @@ const STORE_NAME = 'queue';
 
 export interface QueuedSale {
   clientSaleId: string;
-  // Escopado por tenant: o mesmo navegador/dispositivo pode logar em lojas
-  // diferentes (computador compartilhado) — nunca sincroniza a fila de um
-  // tenant usando o token de outro.
+  // Scoped by tenant: the same browser/device can log into different stores
+  // (shared computer) — never syncs one tenant's queue using another tenant's token.
   tenantId: string;
   payload: CreateSaleInput;
   queuedAt: string;
-  // 'pending': ainda não conseguiu sincronizar (rede fora), tenta de novo
-  // sozinho na próxima reconexão. 'needs_attention': o servidor respondeu e
-  // rejeitou a venda (estoque insuficiente, produto desativado etc.) — para
-  // de tentar sozinho, fica visível até o operador decidir o que fazer.
-  // Nunca alterna sozinho de volta pra 'pending' nem some sem essa decisão.
+  // 'pending': hasn't managed to sync yet (network down), retries on its own
+  // at the next reconnection. 'needs_attention': the server responded and
+  // rejected the sale (insufficient stock, deactivated product, etc.) — stops
+  // retrying on its own, stays visible until the operator decides what to do.
+  // Never switches back to 'pending' on its own, nor disappears without that decision.
   status: 'pending' | 'needs_attention';
   lastError: string | null;
 }

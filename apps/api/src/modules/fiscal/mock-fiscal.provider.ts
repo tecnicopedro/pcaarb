@@ -9,10 +9,10 @@ import type {
 } from './fiscal-provider.interface';
 
 /**
- * Adapter de sandbox: sempre autoriza e gera uma chave de acesso no formato
- * de 44 dígitos (mesmo shape de uma chave de NFC-e real). Fica no lugar do
- * adapter real (Focus NFe/PlugNotas/eNotas) até termos conta e certificado
- * digital com um parceiro — ver docs/03-build-vs-buy-pagamentos-fiscal.md.
+ * Sandbox adapter: always authorizes and generates a 44-digit access key
+ * (same shape as a real NFC-e key). Stands in for the real adapter (Focus
+ * NFe/PlugNotas/eNotas) until we have an account and digital certificate
+ * with a partner — see docs/03-build-vs-buy-pagamentos-fiscal.md.
  */
 @Injectable()
 export class MockFiscalProvider implements FiscalProvider {

@@ -34,8 +34,8 @@ export const createFinanceEntrySchema = z.object({
 
 export type CreateFinanceEntryInput = z.infer<typeof createFinanceEntrySchema>;
 
-// Edição só é permitida enquanto a conta está pendente — status muda por
-// ação dedicada (pagar/cancelar), não por PATCH livre.
+// Editing is only allowed while the entry is pending — status changes through
+// a dedicated action (pay/cancel), not through a free-form PATCH.
 export const updateFinanceEntrySchema = createFinanceEntrySchema.partial();
 
 export type UpdateFinanceEntryInput = z.infer<typeof updateFinanceEntrySchema>;

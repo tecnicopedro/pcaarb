@@ -16,7 +16,7 @@ import {
 import { z } from 'zod';
 import { Public } from '../../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-// Import de valor: necessário para o NestJS injetar via emitDecoratorMetadata.
+// Value import: needed for NestJS to inject via emitDecoratorMetadata.
 import { AuthService } from './auth.service';
 
 const refreshSchema = z.object({ refreshToken: z.string().min(1) });
@@ -28,9 +28,10 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  // Cadastro não é alvo de força bruta como login — o limite existe só pra
-  // travar flood automatizado de contas, não pra ser tão apertado quanto
-  // login. 5/min gerava falso-positivo até num uso legítimo em rajada.
+  // Registration isn't a brute-force target like login — the limit exists
+  // only to stop an automated flood of accounts, not to be as tight as
+  // login. 5/min was producing false positives even for legitimate bursty
+  // use.
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('register')
   @UsePipes(new ZodValidationPipe(registerTenantSchema))
@@ -73,8 +74,9 @@ export class AuthController {
   }
 
   @Public()
-  // Mesmo limite apertado do login: este endpoint é o ponto de partida de um
-  // ataque de enumeração de e-mail por volume, mesmo respondendo sempre 204.
+  // Same tight limit as login: this endpoint is the starting point of a
+  // volume-based email enumeration attack, even though it always responds
+  // 204.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.NO_CONTENT)

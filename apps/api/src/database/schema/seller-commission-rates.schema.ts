@@ -2,10 +2,10 @@ import { pgTable, uuid, integer, timestamp, uniqueIndex } from 'drizzle-orm/pg-c
 import { tenants } from './tenants.schema';
 import { users } from './users.schema';
 
-// Override por vendedor da taxa padrão em commission_settings — não uma
-// tabela de razão/ledger: comissão é calculada sob demanda no relatório
-// agregando sales, não uma tabela de saldo que precise de consistência
-// transacional com a venda.
+// Per-seller override of the default rate in commission_settings — not a
+// ledger table: commission is calculated on demand in the report by
+// aggregating sales, not a balance table that needs transactional
+// consistency with the sale.
 export const sellerCommissionRates = pgTable(
   'seller_commission_rates',
   {

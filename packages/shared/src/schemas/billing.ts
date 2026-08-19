@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-// Catálogo de planos — fonte única de verdade compartilhada entre API e
-// frontend, pra preço exibido e preço cobrado nunca divergirem. Ver
-// PRECOS-E-CUSTOS.md pro racional de mercado por trás desses números.
-// 'enterprise' não tem priceCents: é "sob consulta", não assinável via checkout
-// self-service (subscribeInputSchema exclui esse valor abaixo).
+// Plan catalog — single source of truth shared between API and frontend,
+// so the displayed price and the charged price never diverge. See
+// PRECOS-E-CUSTOS.md for the market rationale behind these numbers.
+// 'enterprise' has no priceCents: it's "contact us", not subscribable via
+// self-service checkout (subscribeInputSchema excludes this value below).
 export const SUBSCRIPTION_PLAN_CATALOG = {
   starter: {
     label: 'Starter',

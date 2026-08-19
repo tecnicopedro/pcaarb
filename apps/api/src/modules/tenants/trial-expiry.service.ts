@@ -5,11 +5,11 @@ import { DRIZZLE, type Database } from '../../database/drizzle.provider';
 import { tenants } from '../../database/schema/index';
 
 /**
- * O TenantStatusGuard já bloqueia tenants com trial vencido em tempo real
- * (compara `trialEndsAt` a cada request), então isso não é a barreira de
- * acesso em si — é só manter `tenants.status` fiel à realidade no banco,
- * pra relatório/admin e pra qualquer fluxo futuro que dependa do status
- * persistido em vez de recalcular a cada leitura.
+ * TenantStatusGuard already blocks tenants with an expired trial in real
+ * time (comparing `trialEndsAt` on every request), so this isn't the actual
+ * access barrier — it just keeps `tenants.status` faithful to reality in the
+ * database, for reporting/admin and for any future flow that depends on the
+ * persisted status instead of recalculating it on every read.
  */
 @Injectable()
 export class TrialExpiryService {

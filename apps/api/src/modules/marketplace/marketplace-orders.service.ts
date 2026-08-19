@@ -50,19 +50,19 @@ export class MarketplaceOrdersService {
   }
 
   /**
-   * Puxa pedidos novos do canal e tenta aplicá-los ao estoque compartilhado.
+   * Pulls new orders from the channel and tries to apply them to shared stock.
    *
-   * Duas garantias de correção, deliberadas (mesmo cuidado do PDV offline —
-   * ver pcaarb_mobile_pdv_decision):
-   * 1. Idempotência: (channelId, externalOrderId) é único. Um pedido que já
-   *    apareceu numa sincronização anterior é ignorado silenciosamente na
-   *    segunda vez (contado em `alreadyProcessed`) — reprocessar a lista
-   *    inteira depois de uma falha parcial nunca abate estoque duas vezes.
-   * 2. Tudo-ou-nada por pedido: se qualquer item do pedido não resolve pra um
-   *    produto sincronizado, ativo, com estoque suficiente, o pedido inteiro
-   *    vira 'needs_attention' com o motivo registrado — nenhum item dele é
-   *    aplicado. Nunca aplica parte de um pedido nem inventa uma correção
-   *    silenciosa; fica visível pro operador resolver manualmente.
+   * Two deliberate correctness guarantees (same care as the offline PDV —
+   * see pcaarb_mobile_pdv_decision):
+   * 1. Idempotency: (channelId, externalOrderId) is unique. An order that
+   *    already showed up in a previous sync is silently ignored the second
+   *    time (counted in `alreadyProcessed`) — reprocessing the whole list
+   *    after a partial failure never deducts stock twice.
+   * 2. All-or-nothing per order: if any item in the order doesn't resolve to
+   *    a synced, active product with enough stock, the entire order becomes
+   *    'needs_attention' with the reason recorded — none of its items are
+   *    applied. It never applies part of an order or invents a silent
+   *    correction; it stays visible for the operator to resolve manually.
    */
   async pullOrders(tenantId: string, userId: string, channelId: string): Promise<PullOrdersResult> {
     return runWithTenant(this.db, tenantId, async (tx) => {
@@ -98,9 +98,9 @@ export class MarketplaceOrdersService {
           .onConflictDoNothing({ target: [marketplaceOrders.channelId, marketplaceOrders.externalOrderId] })
           .returning();
         if (!orderRow) {
-          // Já existe um registro pra este externalOrderId — sincronização
-          // anterior (ou este mesmo fetchNewOrders retornando o pedido de
-          // novo) já tratou dele. Não reabre nem reaplica.
+          // A record for this externalOrderId already exists — a previous
+          // sync (or this same fetchNewOrders call returning the order
+          // again) already handled it. Doesn't reopen or reapply it.
           alreadyProcessed += 1;
           continue;
         }
@@ -185,7 +185,7 @@ export class MarketplaceOrdersService {
         productId: product.id,
         quantity: item.quantity,
         unitPriceCents: item.unitPriceCents,
-        applied: false, // reavaliado abaixo depois da checagem de estoque agregada
+        applied: false, // re-evaluated below after the aggregated stock check
         issue: null,
       });
       const agg = aggregatedByProduct.get(product.id) ?? { product, quantity: 0 };

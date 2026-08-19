@@ -78,9 +78,9 @@ export class ProductsService {
     });
   }
 
-  // Sem endpoint de exclusão definitiva de propósito: itens de venda (Fase 1
-  // PDV) vão referenciar produtos, e apagar quebraria o histórico. "Excluir"
-  // aqui é sempre `update({ active: false })`.
+  // No hard-delete endpoint, by design: sale items (Phase 1 PDV) reference
+  // products, and deleting one would break the history. "Deleting" here is
+  // always `update({ active: false })`.
 
   private async assertSkuAvailable(
     tx: Database,

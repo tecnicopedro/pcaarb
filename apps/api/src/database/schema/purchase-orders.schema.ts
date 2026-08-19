@@ -3,11 +3,11 @@ import { tenants } from './tenants.schema';
 import { suppliers } from './suppliers.schema';
 import { users } from './users.schema';
 
-// Sem estado "sent" de propósito: não existe integração real de notificação
-// ao fornecedor ainda (ver docs/03, mesmo espírito de fiscal/pagamento) — um
-// status sem comportamento por trás seria estado morto. draft = pedido
-// criado; received = recebido (gera entrada de estoque); canceled = só a
-// partir de draft, recebido não se desfaz sozinho.
+// No "sent" state on purpose: there's no real supplier notification
+// integration yet (see docs/03, same spirit as fiscal/payment) — a
+// status with no behavior behind it would be dead state. draft = order
+// created; received = received (generates a stock entry); canceled = only
+// from draft, a received order doesn't undo itself.
 export const purchaseOrderStatusEnum = pgEnum('purchase_order_status', ['draft', 'received', 'canceled']);
 
 export const purchaseOrders = pgTable('purchase_orders', {
@@ -20,7 +20,7 @@ export const purchaseOrders = pgTable('purchase_orders', {
     .references(() => suppliers.id),
   status: purchaseOrderStatusEnum('status').notNull().default('draft'),
   notes: text('notes'),
-  // Denormalizado a partir da soma dos itens — mesmo padrão de sales.totalCents.
+  // Denormalized from the sum of the items — same pattern as sales.totalCents.
   totalCents: integer('total_cents').notNull().default(0),
   createdBy: uuid('created_by')
     .notNull()

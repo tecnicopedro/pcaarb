@@ -7,7 +7,7 @@ export const stockMovementSchema = z.object({
   tenantId: z.string().uuid(),
   productId: z.string().uuid(),
   type: stockMovementTypeSchema,
-  // Delta já assinado (negativo em saída), refletindo o efeito real no saldo.
+  // Already-signed delta (negative on outflow), reflecting the actual effect on the balance.
   quantity: z.number().int(),
   reason: z.string().nullable(),
   saleId: z.string().uuid().nullable(),
@@ -17,9 +17,10 @@ export const stockMovementSchema = z.object({
 
 export type StockMovement = z.infer<typeof stockMovementSchema>;
 
-// Para entrada/saída, quantity é a magnitude (sempre positiva) do que entrou
-// ou saiu. Para ajuste (correção de contagem), quantity é o delta assinado a
-// aplicar — pode ser negativo para corrigir saldo para baixo.
+// For entrada/saída (inflow/outflow), quantity is the magnitude (always
+// positive) of what came in or went out. For ajuste (count correction),
+// quantity is the signed delta to apply — can be negative to correct the
+// balance downward.
 export const createStockMovementSchema = z
   .object({
     type: stockMovementTypeSchema,

@@ -8,8 +8,8 @@ export const productSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   unit: z.string(),
-  // Preço em centavos (inteiro) para evitar erro de arredondamento de ponto
-  // flutuante em valores monetários — nunca usar float para dinheiro.
+  // Price in cents (integer) to avoid floating-point rounding errors on
+  // monetary values — never use float for money.
   priceCents: z.number().int(),
   costPriceCents: z.number().int().nullable(),
   stockQuantity: z.number().int(),

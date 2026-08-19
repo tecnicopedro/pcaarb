@@ -30,9 +30,9 @@ export interface PaymentRefundResult {
 }
 
 /**
- * Interface do gateway de pagamento (cartão/Pix) — ver docs/03. O resto do
- * sistema fala só com esta interface; trocar de gateway (Pagar.me, Mercado
- * Pago...) é escrever um novo adapter, não reescrever o SalesService.
+ * Payment gateway (card/Pix) interface — see docs/03. The rest of the system
+ * talks only to this interface; switching gateways (Pagar.me, Mercado
+ * Pago...) is writing a new adapter, not rewriting SalesService.
  */
 export interface PaymentProvider {
   charge(params: PaymentChargeParams): Promise<PaymentChargeResult>;

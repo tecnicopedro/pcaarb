@@ -5,9 +5,9 @@ import { products } from './products.schema';
 
 export const saleItems = pgTable('sale_items', {
   id: uuid('id').primaryKey().defaultRandom(),
-  // Denormalizado (também existe via sales.tenant_id) de propósito: mantém a
-  // policy de RLS simples e idêntica à das outras tabelas, sem precisar de
-  // subquery via JOIN em sale_id a cada checagem de linha.
+  // Denormalized (also exists via sales.tenant_id) on purpose: keeps the
+  // RLS policy simple and identical to the other tables, without needing a
+  // subquery via JOIN on sale_id for every row check.
   tenantId: uuid('tenant_id')
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
@@ -17,8 +17,8 @@ export const saleItems = pgTable('sale_items', {
   productId: uuid('product_id')
     .notNull()
     .references(() => products.id),
-  // Snapshot do nome/preço no momento da venda: preço do produto pode mudar
-  // depois, mas o histórico da venda não pode.
+  // Snapshot of the name/price at the time of sale: the product's price can
+  // change later, but the sale's history can't.
   productName: text('product_name').notNull(),
   unitPriceCents: integer('unit_price_cents').notNull(),
   quantity: integer('quantity').notNull(),

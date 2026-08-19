@@ -19,9 +19,9 @@ export const financeEntries = pgTable('finance_entries', {
   dueDate: date('due_date', { mode: 'string' }).notNull(),
   status: financeEntryStatusEnum('status').notNull().default('pending'),
   paidAt: timestamp('paid_at', { withTimezone: true }),
-  // Só um dos dois é preenchido, dependendo do type (receivable -> customer,
-  // payable -> supplier); ambos opcionais porque nem toda conta tem uma
-  // contraparte cadastrada (ex.: conta de luz).
+  // Only one of the two is filled in, depending on the type (receivable -> customer,
+  // payable -> supplier); both optional because not every entry has a
+  // registered counterparty (e.g. an electricity bill).
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   supplierId: uuid('supplier_id').references(() => suppliers.id, { onDelete: 'set null' }),
   costCenterId: uuid('cost_center_id').references(() => costCenters.id, { onDelete: 'set null' }),
