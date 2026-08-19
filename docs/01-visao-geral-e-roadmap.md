@@ -1,6 +1,6 @@
 # PCAARB — Visão Geral e Roadmap de Produto
 
-> **Nota (2026-08-18):** este documento descreve a visão e o roadmap por fases — continua válido como plano. Para o que já foi implementado e testado fase a fase, ver a seção "Status atual" em [README.md](../README.md).
+> **Nota (2026-08-18):** este documento descreve a visão e o roadmap por fases — continua válido como plano. Para o que já foi implementado e testado fase a fase, ver a seção "Status atual" em [README.pt-BR.md](../README.pt-BR.md) (o [README.md](../README.md) em inglês tem um resumo mais enxuto).
 
 ## 1. O que é o PCAARB
 
