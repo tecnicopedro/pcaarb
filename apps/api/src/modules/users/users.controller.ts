@@ -127,4 +127,24 @@ export class UsersController {
     });
     return toSafeUser(updated);
   }
+
+  // Mesmo subject de updateRole — desativar acesso é tão sensível quanto
+  // trocar papel. Nunca apaga de verdade, ver UsersService.deactivate.
+  @CheckAbilities({ action: 'update', subject: 'UserAccess' })
+  @Delete(':id')
+  async deactivate(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    const acting = await this.usersService.findById(user.sub);
+    if (!acting) {
+      throw new UnauthorizedException('Usuário autenticado não encontrado');
+    }
+    const updated = await this.usersService.deactivate(user.tenantId, user.sub, acting.role, id);
+    await this.auditLogService.record({
+      tenantId: user.tenantId,
+      actorUserId: user.sub,
+      action: 'user.deactivated',
+      targetType: 'User',
+      targetId: id,
+    });
+    return toSafeUser(updated);
+  }
 }

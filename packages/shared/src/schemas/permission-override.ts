@@ -27,6 +27,8 @@ export type PermissionAction = z.infer<typeof permissionActionSchema>;
 // por natureza, mesmo raciocínio de 'Tenant': delegar isso por override
 // deixaria um admin conceder a si mesmo (ou a outro usuário) visibilidade
 // sobre ações que o próprio dono do negócio talvez não quisesse expor.
+// 'DataPrivacy' segue o mesmo tratamento, mesmo motivo: exportar/anonimizar
+// dado pessoal de cliente em massa é decisão de dono do negócio.
 export const permissionSubjectSchema = z.enum([
   'Sale',
   'SaleReturn',

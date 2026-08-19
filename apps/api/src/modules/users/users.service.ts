@@ -16,7 +16,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { AcceptInviteInput, InviteUserInput, Role } from '@pcaarb/shared';
 import type { Env } from '../../config/env.validation';
 import { DRIZZLE, type Database } from '../../database/drizzle.provider';
-import { tenants, userInvites, users, type NewUserRow, type UserInviteRow, type UserRow } from '../../database/schema/index';
+import { refreshTokens, tenants, userInvites, users, type NewUserRow, type UserInviteRow, type UserRow } from '../../database/schema/index';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { EMAIL_PROVIDER, type EmailProvider } from '../email/email-provider.interface';
 
@@ -128,6 +128,57 @@ export class UsersService {
       throw new Error('Falha ao atualizar papel do usuário');
     }
     return updated;
+  }
+
+  // Nunca DELETE físico — um usuário tem FK em vendas/estoque/caixa/
+  // auditoria por todo canto, apagar destruiria histórico de negócio (mesmo
+  // racional de products.active/stores.active). Login fica bloqueado pra
+  // `active=false` (ver AuthService.login). Sem reativação nesta fatia —
+  // mesmo escopo mínimo de revokeInvite, que também não tem "desfazer".
+  async deactivate(tenantId: string, actingUserId: string, actingRole: Role, targetUserId: string): Promise<UserRow> {
+    if (targetUserId === actingUserId) {
+      throw new BadRequestException('Você não pode desativar sua própria conta — peça pra outro administrador fazer isso');
+    }
+
+    const [target] = await this.db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, targetUserId), eq(users.tenantId, tenantId)))
+      .limit(1);
+    if (!target) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+    if (!target.active) {
+      throw new ConflictException('Usuário já está desativado');
+    }
+
+    if (target.role === 'owner') {
+      if (actingRole !== 'owner') {
+        throw new ForbiddenException('Só um owner pode desativar outro owner');
+      }
+      const owners = await this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner'), eq(users.active, true)));
+      if (owners.length <= 1) {
+        throw new ConflictException('O tenant precisa de ao menos um owner ativo — promova outro antes de desativar este');
+      }
+    }
+
+    // Revoga as sessões existentes na mesma transação — achado de revisão de
+    // segurança (2026-08-19): sem isso, um refresh token emitido antes da
+    // desativação continuava funcionando pra sempre via POST /auth/refresh
+    // (cada chamada rotaciona pra um token novo de mais 7 dias), porque só
+    // AuthService.login() checava `active` — refresh nunca checava. Mesmo
+    // padrão já usado em AuthService.resetPassword() pro mesmo motivo.
+    return this.db.transaction(async (tx) => {
+      const [updated] = await tx.update(users).set({ active: false }).where(eq(users.id, targetUserId)).returning();
+      if (!updated) {
+        throw new Error('Falha ao desativar usuário');
+      }
+      await tx.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, targetUserId));
+      return updated;
+    });
   }
 
   async inviteUser(

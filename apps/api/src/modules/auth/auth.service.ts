@@ -77,8 +77,12 @@ export class AuthService {
       throw new UnauthorizedException('Conta temporariamente bloqueada por muitas tentativas de login — tente novamente mais tarde');
     }
 
-    if (!user || !passwordMatches) {
-      if (user) {
+    // Usuário desativado (ver users.active) trata como credencial inválida —
+    // mesma mensagem genérica de sempre, nunca "conta desativada": revelar
+    // esse estado distinto pra quem só tem a senha (ex.: ex-funcionário
+    // desligado) seria um vazamento de status de conta desnecessário.
+    if (!user || !passwordMatches || !user.active) {
+      if (user && user.active) {
         await this.usersService.registerFailedLogin(user);
       }
       throw new UnauthorizedException('E-mail ou senha inválidos');
@@ -182,8 +186,13 @@ export class AuthService {
     await this.db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, tokenRow.id));
 
     const user = await this.usersService.findById(tokenRow.userId);
-    if (!user) {
-      throw new UnauthorizedException('Usuário não encontrado');
+    // Defesa em profundidade: UsersService.deactivate() já revoga os refresh
+    // tokens existentes na hora de desativar, então este caso só dispararia
+    // se algum outro caminho deixasse um token ativo pra trás — mas mesmo
+    // assim, refresh nunca deveria devolver um token novo pra uma conta
+    // desativada (achado de revisão de segurança, 2026-08-19).
+    if (!user || !user.active) {
+      throw new UnauthorizedException('Refresh token inválido');
     }
 
     return this.issueTokens(user);

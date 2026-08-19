@@ -253,6 +253,13 @@
       "when": 1787110027237,
       "tag": "0035_enable_rls_audit_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1787111067984,
+      "tag": "0036_low_omega_flight",
+      "breakpoints": true
     }
   ]
 }

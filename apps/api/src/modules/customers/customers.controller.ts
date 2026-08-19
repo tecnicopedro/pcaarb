@@ -64,6 +64,6 @@ export class CustomersController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
-    return this.customersService.remove(user.tenantId, id);
+    return this.customersService.remove(user.tenantId, id, user.sub);
   }
 }

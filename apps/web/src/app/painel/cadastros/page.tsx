@@ -9,8 +9,9 @@ import { Contact, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import type { Customer, Supplier } from '@pcaarb/shared';
-import { apiFetch, ApiError } from '@/lib/api-client';
+import { apiDownload, apiFetch, ApiError } from '@/lib/api-client';
 import { useAccessToken } from '@/lib/use-access-token';
+import { useCurrentUser } from '@/lib/use-current-user';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,8 +58,14 @@ type Party = Customer | Supplier;
 
 function PartySection({ resource }: { resource: Resource }) {
   const accessToken = useAccessToken();
+  const meQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const config = RESOURCE_CONFIG[resource];
+  // Exportar/anonimizar dados pessoais (LGPD) só existe pra clientes, e só
+  // pro dono da loja — mesmo gate do backend (subject CASL 'DataPrivacy',
+  // owner-only). Sem essa checagem aqui, outros papéis veriam os botões e
+  // só descobririam que não podem usá-los ao receber um 403.
+  const canManagePrivacy = resource === 'customers' && meQuery.data?.user.role === 'owner';
 
   const listQuery = useQuery({
     queryKey: [resource],
@@ -107,6 +114,21 @@ function PartySection({ resource }: { resource: Resource }) {
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : `Erro ao remover ${config.singular}`);
     },
+  });
+
+  const exportDataMutation = useMutation({
+    mutationFn: (id: string) => apiDownload(`/data-privacy/customers/${id}/export`, accessToken!),
+    onSuccess: () => toast.success('Dados do cliente exportados'),
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Erro ao exportar dados'),
+  });
+
+  const anonymizeMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/data-privacy/customers/${id}/anonymize`, { method: 'POST', accessToken: accessToken! }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [resource] });
+      toast.success('Dados pessoais do cliente anonimizados');
+    },
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'Erro ao anonimizar dados'),
   });
 
   if (!accessToken) {
@@ -178,14 +200,36 @@ function PartySection({ resource }: { resource: Resource }) {
                       <td className="px-4 py-2 text-muted">{party.document ?? '—'}</td>
                       <td className="px-4 py-2 text-muted">{party.email ?? party.phone ?? '—'}</td>
                       <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          className="text-xs text-red-600 hover:underline"
-                          disabled={removeMutation.isPending}
-                          onClick={() => removeMutation.mutate(party.id)}
-                        >
-                          Excluir
-                        </button>
+                        <div className="flex justify-end gap-3">
+                          {canManagePrivacy && (
+                            <>
+                              <button
+                                type="button"
+                                className="text-xs text-accent hover:underline"
+                                disabled={exportDataMutation.isPending}
+                                onClick={() => exportDataMutation.mutate(party.id)}
+                              >
+                                Exportar dados
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-amber-700 hover:underline dark:text-amber-500"
+                                disabled={anonymizeMutation.isPending}
+                                onClick={() => anonymizeMutation.mutate(party.id)}
+                              >
+                                Anonimizar
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="text-xs text-red-600 hover:underline"
+                            disabled={removeMutation.isPending}
+                            onClick={() => removeMutation.mutate(party.id)}
+                          >
+                            Excluir
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                   ))}

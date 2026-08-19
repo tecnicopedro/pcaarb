@@ -8,6 +8,7 @@ export const userSchema = z.object({
   name: z.string(),
   email: z.string().email(),
   role: roleSchema,
+  active: z.boolean(),
   createdAt: z.string().datetime(),
 });
 

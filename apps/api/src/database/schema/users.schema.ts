@@ -22,6 +22,11 @@ export const users = pgTable(
     // Nunca loga de verdade (senha é lixo aleatório nunca revelado) e fica
     // fora da listagem humana de usuários (ver UsersService.listByTenant).
     isServiceAccount: boolean('is_service_account').notNull().default(false),
+    // Desativação de usuário (LGPD/gestão de funcionário) — mesmo padrão de
+    // products.active/stores.active, nunca DELETE físico: um usuário tem FK
+    // em vendas/estoque/caixa/auditoria por todo canto, apagar destruiria
+    // histórico de negócio. Login bloqueado quando false.
+    active: boolean('active').notNull().default(true),
     // Bloqueio de conta por tentativas de login — complementa (não substitui)
     // o rate-limit por IP do endpoint: barra por CONTA mesmo se o atacante
     // distribuir tentativas entre vários IPs. Zerado a cada login bem-sucedido.

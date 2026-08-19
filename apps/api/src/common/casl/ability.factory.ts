@@ -23,6 +23,9 @@ export type Action = 'manage' | 'create' | 'read' | 'update' | 'delete';
 // abaixo nem em permissionSubjectSchema) — ler o próprio log de auditoria
 // não pode ser delegável, senão um admin (ou pior, um override) poderia
 // ocultar ou verificar se as próprias ações sensíveis ficaram registradas.
+// 'DataPrivacy' (exportar/anonimizar dados pessoais de cliente) segue o
+// mesmo tratamento owner-only, pelo mesmo motivo: acesso/destruição em
+// massa de dado pessoal é decisão de dono do negócio, não delegável.
 export type Subject =
   | 'all'
   | 'Sale'
@@ -43,7 +46,8 @@ export type Subject =
   | 'UserAccess'
   | 'Store'
   | 'Integration'
-  | 'AuditLog';
+  | 'AuditLog'
+  | 'DataPrivacy';
 
 export type AppAbility = PureAbility<[Action, Subject]>;
 

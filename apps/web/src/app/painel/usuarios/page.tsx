@@ -21,6 +21,7 @@ import {
 } from '@pcaarb/shared';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useAccessToken } from '@/lib/use-access-token';
+import { useCurrentUser } from '@/lib/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -164,6 +165,7 @@ function PermissionOverridesPanel({ userId }: { userId: string }) {
 
 export default function UsuariosPage() {
   const accessToken = useAccessToken();
+  const meQuery = useCurrentUser();
   const queryClient = useQueryClient();
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
@@ -226,6 +228,17 @@ export default function UsuariosPage() {
     },
     onError: (error) => {
       toast.error(error instanceof ApiError ? error.message : 'Erro inesperado ao atualizar o papel');
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/users/${id}`, { method: 'DELETE', accessToken: accessToken! }),
+    onSuccess: () => {
+      invalidateAll();
+      toast.success('Usuário desativado');
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiError ? error.message : 'Erro ao desativar usuário');
     },
   });
 
@@ -325,7 +338,7 @@ export default function UsuariosPage() {
         <h2 className="text-sm font-medium text-muted">{usersQuery.data ? `${usersQuery.data.length} usuário(s)` : ''}</h2>
         <div className="overflow-x-auto rounded-lg border border-border">
           {!usersQuery.data ? (
-            <SkeletonRows rows={3} cols={3} />
+            <SkeletonRows rows={3} cols={5} />
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 text-left dark:bg-zinc-900">
@@ -333,6 +346,7 @@ export default function UsuariosPage() {
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">E-mail</th>
                   <th className="px-4 py-2 font-medium">Papel</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2 font-medium"></th>
                 </tr>
               </thead>
@@ -356,17 +370,32 @@ export default function UsuariosPage() {
                           ))}
                         </select>
                       </td>
+                      <td className="px-4 py-2">
+                        <Badge variant={user.active ? 'success' : 'neutral'}>{user.active ? 'Ativo' : 'Inativo'}</Badge>
+                      </td>
                       <td className="px-4 py-2 text-right">
-                        {user.role !== 'owner' && (
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-                            onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            Permissões
-                          </button>
-                        )}
+                        <div className="flex justify-end gap-3">
+                          {user.role !== 'owner' && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                              onClick={() => setExpandedUserId(expandedUserId === user.id ? null : user.id)}
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                              Permissões
+                            </button>
+                          )}
+                          {user.active && user.id !== meQuery.data?.user.id && (
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 hover:underline"
+                              disabled={deactivateMutation.isPending}
+                              onClick={() => deactivateMutation.mutate(user.id)}
+                            >
+                              Desativar
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     <AnimatePresence initial={false}>
@@ -377,7 +406,7 @@ export default function UsuariosPage() {
                           exit={{ opacity: 0 }}
                           className="border-t border-border bg-zinc-50 dark:bg-zinc-900"
                         >
-                          <td className="px-4 py-3" colSpan={4}>
+                          <td className="px-4 py-3" colSpan={5}>
                             <PermissionOverridesPanel userId={user.id} />
                           </td>
                         </motion.tr>
