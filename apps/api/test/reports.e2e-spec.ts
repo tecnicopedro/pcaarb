@@ -119,6 +119,65 @@ describe('Relatórios (e2e)', () => {
     expect(sellers.body[0].revenueCents).toBe(4000);
   });
 
+  it('devolução parcial reduz a receita líquida em resumo/rankings/comissão e aparece separada na exportação CSV — venda continua completed e não é excluída, mas não pode contar o valor cheio', async () => {
+    const tenant = await registerTenant(app, 'reports-devolucao-parcial');
+    const productId = await createProduct(app, tenant.accessToken, 1000, 'Produto Devolvido');
+    await openCashSession(app, tenant.accessToken);
+
+    const sale = await sell(app, tenant.accessToken, productId, 3, 1000); // 3000
+    expect(sale.status).toBe(201);
+    const saleItemId = sale.body.items[0].id as string;
+
+    const ret = await request(app.getHttpServer())
+      .post(`/api/sales/${sale.body.id}/returns`)
+      .set('Authorization', `Bearer ${tenant.accessToken}`)
+      .send({ refundMethod: 'dinheiro', reason: 'Comprou a mais', items: [{ saleItemId, quantity: 1 }] });
+    expect(ret.status).toBe(201);
+    expect(ret.body.totalRefundedCents).toBe(1000);
+
+    // A venda em si segue completed (devolução parcial não cancela) — a
+    // receita reportada é que precisa descontar o que já foi devolvido.
+    const updatedSale = await request(app.getHttpServer())
+      .get(`/api/sales/${sale.body.id}`)
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(updatedSale.body.status).toBe('completed');
+
+    const summary = await request(app.getHttpServer())
+      .get('/api/reports/vendas-resumo')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(summary.body.totalSales).toBe(1);
+    expect(summary.body.totalRevenueCents).toBe(2000); // 3000 - 1000, não 3000
+
+    const ranking = await request(app.getHttpServer())
+      .get('/api/reports/produtos-ranking')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(ranking.body[0].revenueCents).toBe(2000);
+    expect(ranking.body[0].quantitySold).toBe(2); // 3 vendidas - 1 devolvida
+
+    const sellers = await request(app.getHttpServer())
+      .get('/api/reports/vendedores-ranking')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(sellers.body[0].revenueCents).toBe(2000);
+
+    const storesRanking = await request(app.getHttpServer())
+      .get('/api/reports/lojas-ranking')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(storesRanking.body[0].revenueCents).toBe(2000);
+
+    const commission = await request(app.getHttpServer())
+      .get('/api/reports/comissoes')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    expect(commission.body.porVendedor[0].revenueCents).toBe(2000);
+
+    const csv = await request(app.getHttpServer())
+      .get('/api/reports/exportar/vendas.csv')
+      .set('Authorization', `Bearer ${tenant.accessToken}`);
+    // Total exportado continua o valor original da transação (auditável), com
+    // o valor devolvido numa coluna separada — não um número já líquido sem rastro.
+    expect(csv.text).toContain(sale.body.id);
+    expect(csv.text).toContain(';30.00;0.00;30.00;10.00;'); // subtotal;desconto;total;valor devolvido
+  });
+
   it('sem vendas no período retorna resumo zerado e listas vazias', async () => {
     const tenant = await registerTenant(app, 'reports-vazio');
 
@@ -254,7 +313,7 @@ describe('Relatórios (e2e)', () => {
     expect(response.headers['content-type']).toContain('text/csv');
     expect(response.headers['content-disposition']).toContain('attachment; filename="vendas');
     const body = response.text;
-    expect(body).toContain('Data;Hora;ID da venda;Loja;Vendedor;Cliente;Subtotal;Desconto;Total;Formas de pagamento;Status fiscal;Chave de acesso NFC-e');
+    expect(body).toContain('Data;Hora;ID da venda;Loja;Vendedor;Cliente;Subtotal;Desconto;Total;Valor devolvido;Formas de pagamento;Status fiscal;Chave de acesso NFC-e');
     expect(body).toContain(sale.body.id);
     expect(body).toContain('Dinheiro: R$ 30.00');
     // Fiscal é emitido automaticamente (sandbox) ao vender — ver fiscal-pagamento.e2e-spec.ts.

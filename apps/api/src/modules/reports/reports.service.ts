@@ -19,6 +19,8 @@ import { runWithTenant } from '../../database/tenant-context';
 import {
   sales,
   saleItems,
+  saleReturns,
+  saleReturnItems,
   users,
   financeEntries,
   costCenters,
@@ -75,7 +77,11 @@ export class ReportsService {
   async summary(tenantId: string, query: ReportPeriodQuery): Promise<SalesSummary> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
-    const totalRevenueCents = salesInRange.reduce((sum, sale) => sum + sale.totalCents, 0);
+    const refundedBySale = await this.refundedCentsBySale(
+      tenantId,
+      salesInRange.map((sale) => sale.id),
+    );
+    const totalRevenueCents = salesInRange.reduce((sum, sale) => sum + sale.totalCents - (refundedBySale.get(sale.id) ?? 0), 0);
     const totalSales = salesInRange.length;
     return {
       from: range.from,
@@ -120,12 +126,16 @@ export class ReportsService {
       tx.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, sellerIds)),
     );
     const nameById = new Map(sellerRows.map((seller) => [seller.id, seller.name]));
+    const refundedBySale = await this.refundedCentsBySale(
+      tenantId,
+      salesInRange.map((sale) => sale.id),
+    );
 
     const bySeller = new Map<string, { totalSales: number; revenueCents: number }>();
     for (const sale of salesInRange) {
       const acc = bySeller.get(sale.sellerId) ?? { totalSales: 0, revenueCents: 0 };
       acc.totalSales += 1;
-      acc.revenueCents += sale.totalCents;
+      acc.revenueCents += sale.totalCents - (refundedBySale.get(sale.id) ?? 0);
       bySeller.set(sale.sellerId, acc);
     }
 
@@ -155,12 +165,16 @@ export class ReportsService {
       tx.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds)),
     );
     const nameById = new Map(storeRows.map((store) => [store.id, store.name]));
+    const refundedBySale = await this.refundedCentsBySale(
+      tenantId,
+      salesInRange.map((sale) => sale.id),
+    );
 
     const byStore = new Map<string, { totalSales: number; revenueCents: number }>();
     for (const sale of salesInRange) {
       const acc = byStore.get(sale.storeId) ?? { totalSales: 0, revenueCents: 0 };
       acc.totalSales += 1;
-      acc.revenueCents += sale.totalCents;
+      acc.revenueCents += sale.totalCents - (refundedBySale.get(sale.id) ?? 0);
       byStore.set(sale.storeId, acc);
     }
 
@@ -185,11 +199,15 @@ export class ReportsService {
     }
 
     const sellerIds = [...new Set(salesInRange.map((sale) => sale.sellerId))];
+    const refundedBySale = await this.refundedCentsBySale(
+      tenantId,
+      salesInRange.map((sale) => sale.id),
+    );
     const bySeller = new Map<string, { totalSales: number; revenueCents: number }>();
     for (const sale of salesInRange) {
       const acc = bySeller.get(sale.sellerId) ?? { totalSales: 0, revenueCents: 0 };
       acc.totalSales += 1;
-      acc.revenueCents += sale.totalCents;
+      acc.revenueCents += sale.totalCents - (refundedBySale.get(sale.id) ?? 0);
       bySeller.set(sale.sellerId, acc);
     }
 
@@ -293,17 +311,30 @@ export class ReportsService {
   async exportSalesCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
+    const csvHeader = [
+      'Data',
+      'Hora',
+      'ID da venda',
+      'Loja',
+      'Vendedor',
+      'Cliente',
+      'Subtotal',
+      'Desconto',
+      'Total',
+      'Valor devolvido',
+      'Formas de pagamento',
+      'Status fiscal',
+      'Chave de acesso NFC-e',
+    ];
     if (salesInRange.length === 0) {
-      return toCsv(
-        ['Data', 'Hora', 'ID da venda', 'Loja', 'Vendedor', 'Cliente', 'Subtotal', 'Desconto', 'Total', 'Formas de pagamento', 'Status fiscal', 'Chave de acesso NFC-e'],
-        [],
-      );
+      return toCsv(csvHeader, []);
     }
 
     const saleIds = salesInRange.map((sale) => sale.id);
     const storeIds = [...new Set(salesInRange.map((sale) => sale.storeId))];
     const sellerIds = [...new Set(salesInRange.map((sale) => sale.sellerId))];
     const customerIds = [...new Set(salesInRange.map((sale) => sale.customerId).filter((id): id is string => !!id))];
+    const refundedBySale = await this.refundedCentsBySale(tenantId, saleIds);
 
     const { storeRows, sellerRows, customerRows, paymentRows, fiscalRows } = await runWithTenant(this.db, tenantId, async (tx) => {
       const [storeRows, sellerRows, customerRows, paymentRows, fiscalRows] = await Promise.all([
@@ -346,16 +377,14 @@ export class ReportsService {
           (sale.subtotalCents / 100).toFixed(2),
           (sale.discountCents / 100).toFixed(2),
           (sale.totalCents / 100).toFixed(2),
+          ((refundedBySale.get(sale.id) ?? 0) / 100).toFixed(2),
           paymentsLabel,
           fiscal ? (FISCAL_STATUS_LABELS[fiscal.status] ?? fiscal.status) : 'Não emitida',
           fiscal?.accessKey ?? '',
         ];
       });
 
-    return toCsv(
-      ['Data', 'Hora', 'ID da venda', 'Loja', 'Vendedor', 'Cliente', 'Subtotal', 'Desconto', 'Total', 'Formas de pagamento', 'Status fiscal', 'Chave de acesso NFC-e'],
-      rows,
-    );
+    return toCsv(csvHeader, rows);
   }
 
   async exportFinanceCsv(tenantId: string, query: ReportPeriodQuery): Promise<string> {
@@ -440,8 +469,13 @@ export class ReportsService {
       const items = await runWithTenant(this.db, tenantId, (tx) =>
         tx.select().from(saleItems).where(and(eq(saleItems.tenantId, tenantId), inArray(saleItems.saleId, saleIds))),
       );
+      const returnedByItem = await this.returnedByLineItem(
+        tenantId,
+        items.map((item) => item.id),
+      );
       for (const item of items) {
-        quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) ?? 0) + item.quantity);
+        const returnedQuantity = returnedByItem.get(item.id)?.quantity ?? 0;
+        quantityByProduct.set(item.productId, (quantityByProduct.get(item.productId) ?? 0) + item.quantity - returnedQuantity);
       }
     }
 
@@ -526,6 +560,59 @@ export class ReportsService {
     );
   }
 
+  // Venda com devolução parcial continua status='completed' (só devolução
+  // total vira 'canceled', já excluída por completedSalesInRange) — sem isso,
+  // toda receita/ranking/comissão continuaria contando o valor cheio da venda
+  // mesmo depois de parte dele ter sido efetivamente devolvida ao cliente.
+  private async refundedCentsBySale(tenantId: string, saleIds: string[]): Promise<Map<string, number>> {
+    if (saleIds.length === 0) {
+      return new Map();
+    }
+    const rows = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select({ saleId: saleReturns.saleId, totalRefundedCents: saleReturns.totalRefundedCents })
+        .from(saleReturns)
+        .where(and(eq(saleReturns.tenantId, tenantId), inArray(saleReturns.saleId, saleIds))),
+    );
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      map.set(row.saleId, (map.get(row.saleId) ?? 0) + row.totalRefundedCents);
+    }
+    return map;
+  }
+
+  // Mesmo raciocínio de refundedCentsBySale, na granularidade de linha —
+  // usado por ranking de produto e sugestão de reposição, que agregam por
+  // saleItemId/productId em vez de por venda inteira.
+  private async returnedByLineItem(
+    tenantId: string,
+    saleItemIds: string[],
+  ): Promise<Map<string, { quantity: number; refundedCents: number }>> {
+    if (saleItemIds.length === 0) {
+      return new Map();
+    }
+    const rows = await runWithTenant(this.db, tenantId, (tx) =>
+      tx
+        .select({ saleItemId: saleReturnItems.saleItemId, quantity: saleReturnItems.quantity, refundedCents: saleReturnItems.refundedCents })
+        .from(saleReturnItems)
+        .where(
+          and(
+            eq(saleReturnItems.tenantId, tenantId),
+            eq(saleReturnItems.applied, true),
+            inArray(saleReturnItems.saleItemId, saleItemIds),
+          ),
+        ),
+    );
+    const map = new Map<string, { quantity: number; refundedCents: number }>();
+    for (const row of rows) {
+      const acc = map.get(row.saleItemId) ?? { quantity: 0, refundedCents: 0 };
+      acc.quantity += row.quantity;
+      acc.refundedCents += row.refundedCents;
+      map.set(row.saleItemId, acc);
+    }
+    return map;
+  }
+
   private async aggregatedProductRevenue(tenantId: string, query: ReportPeriodQuery): Promise<ProductRankingItem[]> {
     const range = resolveRange(query);
     const salesInRange = await this.completedSalesInRange(tenantId, range);
@@ -537,12 +624,17 @@ export class ReportsService {
     const items = await runWithTenant(this.db, tenantId, (tx) =>
       tx.select().from(saleItems).where(and(eq(saleItems.tenantId, tenantId), inArray(saleItems.saleId, saleIds))),
     );
+    const returnedByItem = await this.returnedByLineItem(
+      tenantId,
+      items.map((item) => item.id),
+    );
 
     const byProduct = new Map<string, { productName: string; quantitySold: number; revenueCents: number }>();
     for (const item of items) {
+      const returned = returnedByItem.get(item.id);
       const acc = byProduct.get(item.productId) ?? { productName: item.productName, quantitySold: 0, revenueCents: 0 };
-      acc.quantitySold += item.quantity;
-      acc.revenueCents += item.totalCents;
+      acc.quantitySold += item.quantity - (returned?.quantity ?? 0);
+      acc.revenueCents += item.totalCents - (returned?.refundedCents ?? 0);
       byProduct.set(item.productId, acc);
     }
 
